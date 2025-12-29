@@ -30,11 +30,14 @@ def analyze_oct(image, pdf_path, prompt_text):
     """Sends the image + pdf + prompt to Gemini"""
     try:
         # Configure the AI
-        genai.configure(api_key=api_key)
-        
-        # Note: You can change this to 'gemini-1.5-pro' or 'gemini-2.0-flash-exp' 
-        # depending on what is available in your account.
-        model = genai.GenerativeModel('gemini-1.5-pro') 
+    genai.configure(api_key=api_key)
+    
+    # Use the specific model you have access to
+    model = genai.GenerativeModel('gemini-2.5-flash') 
+
+    # Upload the PDF to Gemini's temporary storage
+    with st.spinner("Reading textbook... (This happens once per file)"):
+        pdf_file = genai.upload_file(pdf_path)
 
         # Upload the PDF to Gemini's temporary storage
         with st.spinner("Reading textbook... (This happens once per file)"):
