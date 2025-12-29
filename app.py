@@ -9,7 +9,7 @@ st.set_page_config(page_title="OCT Expert AI", page_icon="👁️", layout="wide
 
 st.title("👁️ AI Optical Coherence Tomography (OCT) Analyst")
 st.markdown("""
-This tool uses **Gemini Pro** to analyze OCT scans based on your reference textbooks.
+This tool uses **Gemini 2.5 Flash** to analyze OCT scans based on your reference textbooks.
 """)
 
 # --- SIDEBAR: SETUP ---
@@ -22,22 +22,18 @@ with st.sidebar:
     uploaded_book = st.file_uploader("Upload Reference PDF", type=['pdf'])
 
     st.divider()
-    st.markdown("**Model:** Gemini 1.5 Pro (Standard)")
+    st.markdown("**Model:** Gemini 2.5 Flash (2025 Edition)")
 
 # --- MAIN APP LOGIC ---
 
 def analyze_oct(image, pdf_path, prompt_text):
     """Sends the image + pdf + prompt to Gemini"""
     try:
-        # Configure the AI
-    genai.configure(api_key=api_key)
-    
-    # Use the specific model you have access to
-    model = genai.GenerativeModel('gemini-2.5-flash') 
-
-    # Upload the PDF to Gemini's temporary storage
-    with st.spinner("Reading textbook... (This happens once per file)"):
-        pdf_file = genai.upload_file(pdf_path)
+        # Configure the AI with your API Key
+        genai.configure(api_key=api_key)
+        
+        # Use the specific Gemini 2.5 Flash model
+        model = genai.GenerativeModel('gemini-2.5-flash') 
 
         # Upload the PDF to Gemini's temporary storage
         with st.spinner("Reading textbook... (This happens once per file)"):
@@ -73,7 +69,7 @@ with col2:
     # The "System Instruction" / Persona
     system_prompt = st.text_area(
         "AI Instructions (Editable)", 
-        value="You are an expert Ophthalmologist. Analyze the attached OCT scan based STRICTLY on the attached PDF textbook. \n\n1. Describe the retinal layers (ILM, RPE, etc).\n2. Identify any pathology (e.g., fluid, disruption).\n3. Suggest a diagnosis referencing the textbook.",
+        value="You are an expert Consultant Ophthalmologist. Analyze the attached OCT scan based STRICTLY on the attached PDF textbook. \n\n1. Describe the retinal layers (ILM, RPE, IS/OS junction, etc).\n2. Identify any pathology (e.g., SRF, IRF, PED, disruption).\n3. Suggest a diagnosis referencing the textbook chapters.",
         height=150
     )
 
