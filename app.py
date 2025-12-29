@@ -9,7 +9,7 @@ st.set_page_config(page_title="OCT Expert AI", page_icon="👁️", layout="wide
 
 st.title("👁️ AI Optical Coherence Tomography (OCT) Analyst")
 st.markdown("""
-This tool uses **Gemini 2.5 Flash** to analyze OCT scans based on your reference textbooks.
+This tool uses **Gemini 1.5 Flash** to analyze OCT scans based on your reference textbooks.
 """)
 
 # --- SIDEBAR: SETUP ---
@@ -22,7 +22,7 @@ with st.sidebar:
     uploaded_book = st.file_uploader("Upload Reference PDF", type=['pdf'])
 
     st.divider()
-    st.markdown("**Model:** Gemini 2.5 Flash (2025 Edition)")
+    st.markdown("**Model:** Gemini 1.5 Flash (Standard Free)")
 
 # --- MAIN APP LOGIC ---
 
@@ -32,8 +32,9 @@ def analyze_oct(image, pdf_path, prompt_text):
         # Configure the AI with your API Key
         genai.configure(api_key=api_key)
         
-        # Use the specific Gemini 2.5 Flash model
-        model = genai.GenerativeModel('gemini-2.5-flash') 
+        # We use 'gemini-1.5-flash' because it is fast, free, and stable.
+        # If you specifically have access to 2.0, you can change this to 'gemini-2.0-flash-exp'
+        model = genai.GenerativeModel('gemini-1.5-flash') 
 
         # Upload the PDF to Gemini's temporary storage
         with st.spinner("Reading textbook... (This happens once per file)"):
