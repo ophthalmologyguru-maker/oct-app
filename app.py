@@ -12,7 +12,7 @@ st.title("OCT Analysis Tool")
 st.sidebar.header("Settings")
 api_key = st.sidebar.text_input("Google API Key", type="password")
 uploaded_file = st.sidebar.file_uploader("Upload Textbook PDF", type=['pdf'])
-st.sidebar.info("Model: Gemini 2.0 Flash (Experimental)")
+st.sidebar.info("Model: Gemini 1.5 Flash (Standard Free)")
 
 # 3. Main Area Input
 st.write("### Upload Patient Scan")
@@ -24,11 +24,11 @@ if st.button("Analyze Scan"):
         st.error("❌ Please provide API Key, PDF, and Image.")
     else:
         try:
-            with st.spinner("Analyzing with Gemini 2.0..."):
+            with st.spinner("Analyzing with Gemini 1.5 Flash..."):
                 genai.configure(api_key=api_key)
                 
-                # We use the newest Experimental 2.0 model
-                model = genai.GenerativeModel('gemini-2.0-flash-exp')
+                # REVERTED: Switching back to the stable 1.5 model
+                model = genai.GenerativeModel('gemini-1.5-flash')
                 
                 # Save PDF
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
