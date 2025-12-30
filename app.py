@@ -1,52 +1,84 @@
 import streamlit as st
-import google.generativeai as genai
-from PIL import Image
-import tempfile
 import os
+from groq import Groq
+import base64
+from PIL import Image
+from PyPDF2 import PdfReader
 
-# 1. Setup the Page
-st.set_page_config(page_title="OCT Expert AI", layout="wide")
-st.title("OCT Analysis Tool")
+# 1. Page Setup
+st.set_page_config(page_title="OCT Expert (Llama 3.2)", layout="wide")
+st.title("👁️ OCT Analysis (Powered by Groq)")
 
-# 2. Sidebar Inputs
-st.sidebar.header("Settings")
-api_key = st.sidebar.text_input("Google API Key", type="password")
-uploaded_file = st.sidebar.file_uploader("Upload Textbook PDF", type=['pdf'])
-st.sidebar.info("Model: Gemini 1.5 Flash (Standard Free)")
+# 2. Sidebar
+st.sidebar.header("Configuration")
+api_key = st.sidebar.text_input("Enter Groq API Key (starts with gsk_)", type="password")
+uploaded_file = st.sidebar.file_uploader("Upload Guidelines/Chapter (PDF)", type=['pdf'])
+st.sidebar.warning("Note: Llama 3.2 has a smaller memory than Gemini. Upload specific chapters (e.g., 'Retina pathology'), not whole books.")
 
-# 3. Main Area Input
-st.write("### Upload Patient Scan")
-uploaded_image = st.file_uploader("Upload Image", type=['png', 'jpg', 'jpeg'])
+# 3. Main Input
+uploaded_image = st.file_uploader("Upload OCT Scan", type=['png', 'jpg', 'jpeg'])
 
-# 4. The Logic
+# Helper: Convert Image to Base64 (Required for Groq)
+def encode_image(image_path):
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode('utf-8')
+
+# Helper: Extract Text from PDF
+def get_pdf_text(pdf_file):
+    reader = PdfReader(pdf_file)
+    text = ""
+    # Limit to first 30 pages to prevent crashing
+    for i, page in enumerate(reader.pages):
+        if i > 30: break 
+        text += page.extract_text()
+    return text
+
+# 4. Analysis Logic
 if st.button("Analyze Scan"):
     if not api_key or not uploaded_file or not uploaded_image:
         st.error("❌ Please provide API Key, PDF, and Image.")
     else:
         try:
-            with st.spinner("Analyzing with Gemini 1.5 Flash..."):
-                genai.configure(api_key=api_key)
+            with st.spinner("Analyzing with Llama 3.2 Vision..."):
+                # Initialize Groq
+                client = Groq(api_key=api_key)
+
+                # Process PDF (Extract text)
+                pdf_text = get_pdf_text(uploaded_file)
                 
-                # REVERTED: Switching back to the stable 1.5 model
-                model = genai.GenerativeModel('gemini-1.5-flash')
-                
-                # Save PDF
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-                    tmp.write(uploaded_file.getvalue())
-                    tmp_path = tmp.name
-                
-                # Analyze
-                pdf_blob = genai.upload_file(tmp_path)
-                image_blob = Image.open(uploaded_image)
-                
-                prompt = "You are an expert Ophthalmologist. Analyze this OCT scan based on the attached textbook. Describe layers, pathology, and diagnosis."
-                
-                response = model.generate_content([prompt, pdf_blob, image_blob])
-                
+                # Process Image (Save temp & encode)
+                with open("temp_oct.jpg", "wb") as f:
+                    f.write(uploaded_image.getbuffer())
+                base64_image = encode_image("temp_oct.jpg")
+
+                # The Prompt
+                messages = [
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text", 
+                                "text": f"You are an expert Ophthalmologist. Use the following medical text as your knowledge base:\n\n{pdf_text}\n\nAnalyze the attached OCT scan image. Describe layers, identify pathology, and suggest a diagnosis based on the text provided."
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/jpeg;base64,{base64_image}"
+                                }
+                            }
+                        ]
+                    }
+                ]
+
+                # Send to Groq
+                chat_completion = client.chat.completions.create(
+                    messages=messages,
+                    model="llama-3.2-11b-vision-preview",
+                )
+
+                # Show Result
                 st.success("Analysis Complete")
-                st.markdown(response.text)
-                
-                os.remove(tmp_path)
-                
+                st.markdown(chat_completion.choices[0].message.content)
+
         except Exception as e:
             st.error(f"Error: {e}")
