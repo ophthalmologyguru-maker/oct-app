@@ -6,19 +6,19 @@ from PIL import Image
 from PyPDF2 import PdfReader
 
 # 1. Page Setup
-st.set_page_config(page_title="OCT Expert (Llama 3.2)", layout="wide")
-st.title("👁️ OCT Analysis (Powered by Groq)")
+st.set_page_config(page_title="OCT Expert (Llama 4 Vision)", layout="wide")
+st.title("👁️ OCT Analysis (Powered by Groq Llama 4)")
 
 # 2. Sidebar
 st.sidebar.header("Configuration")
 api_key = st.sidebar.text_input("Enter Groq API Key (starts with gsk_)", type="password")
 uploaded_file = st.sidebar.file_uploader("Upload Guidelines/Chapter (PDF)", type=['pdf'])
-st.sidebar.warning("Note: Llama 3.2 has a smaller memory than Gemini. Upload specific chapters (e.g., 'Retina pathology'), not whole books.")
+st.sidebar.info("Model: Llama 4 Scout (Newest Vision Model)")
 
 # 3. Main Input
 uploaded_image = st.file_uploader("Upload OCT Scan", type=['png', 'jpg', 'jpeg'])
 
-# Helper: Convert Image to Base64 (Required for Groq)
+# Helper: Convert Image to Base64
 def encode_image(image_path):
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
@@ -27,9 +27,9 @@ def encode_image(image_path):
 def get_pdf_text(pdf_file):
     reader = PdfReader(pdf_file)
     text = ""
-    # Limit to first 30 pages to prevent crashing
+    # Limit to first 20 pages to avoid token limits
     for i, page in enumerate(reader.pages):
-        if i > 30: break 
+        if i > 20: break 
         text += page.extract_text()
     return text
 
@@ -39,14 +39,11 @@ if st.button("Analyze Scan"):
         st.error("❌ Please provide API Key, PDF, and Image.")
     else:
         try:
-            with st.spinner("Analyzing with Llama 3.2 Vision..."):
-                # Initialize Groq
+            with st.spinner("Analyzing with Llama 4 Vision..."):
                 client = Groq(api_key=api_key)
 
-                # Process PDF (Extract text)
+                # Process Inputs
                 pdf_text = get_pdf_text(uploaded_file)
-                
-                # Process Image (Save temp & encode)
                 with open("temp_oct.jpg", "wb") as f:
                     f.write(uploaded_image.getbuffer())
                 base64_image = encode_image("temp_oct.jpg")
@@ -58,7 +55,7 @@ if st.button("Analyze Scan"):
                         "content": [
                             {
                                 "type": "text", 
-                                "text": f"You are an expert Ophthalmologist. Use the following medical text as your knowledge base:\n\n{pdf_text}\n\nAnalyze the attached OCT scan image. Describe layers, identify pathology, and suggest a diagnosis based on the text provided."
+                                "text": f"You are an expert Ophthalmologist. Use this medical text as context:\n\n{pdf_text}\n\nAnalyze the attached OCT scan. Describe layers, identify pathology, and suggest a diagnosis."
                             },
                             {
                                 "type": "image_url",
@@ -70,13 +67,12 @@ if st.button("Analyze Scan"):
                     }
                 ]
 
-                # Send to Groq
+                # UPDATED MODEL ID (2025 Standard)
                 chat_completion = client.chat.completions.create(
                     messages=messages,
-                    model="llama-3.2-11b-vision-preview",
+                    model="meta-llama/llama-4-scout-17b-16e-instruct", 
                 )
 
-                # Show Result
                 st.success("Analysis Complete")
                 st.markdown(chat_completion.choices[0].message.content)
 
