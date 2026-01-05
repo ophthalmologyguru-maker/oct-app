@@ -59,7 +59,7 @@ st.title("👁️ Masood Alam Eye Diagnostics")
 st.markdown("**AI-Powered Ophthalmic Consultant**")
 
 # =========================================================
-# SIDEBAR (MODALITIES ON TOP)
+# SIDEBAR
 # =========================================================
 with st.sidebar:
     st.header("Imaging Modality")
@@ -163,10 +163,10 @@ st.write(f"### Upload {modality} Scan")
 # 1. Instruction Note
 st.info("ℹ️ **Note:** Tap **'Browse files'** to upload an image from your **Device** (Android, iPhone, PC, Mac, or Linux).") 
 
-# 2. File Uploader (Always Visible)
+# 2. File Uploader
 image_file = st.file_uploader("Choose an image file", type=["jpg", "jpeg", "png"])
 
-# 3. Disclaimer (Beneath Uploader)
+# 3. Disclaimer
 st.warning(
     """
     ⚠️ **AI MEDICAL DISCLAIMER**
@@ -181,7 +181,7 @@ st.warning(
     """
 )
 
-# 4. Acknowledgement (Beneath Disclaimer)
+# 4. Acknowledgement
 acknowledgement = st.checkbox(
     "✅ I acknowledge that I have read the disclaimer above and understand this tool is for support purposes only."
 )
@@ -206,6 +206,19 @@ if image_file:
                     """
 
                     messages = [
-                        {"role": "system", "content": SYSTEM_PROMPT},
                         {
-                            "role
+                            "role": "system", 
+                            "content": SYSTEM_PROMPT
+                        },
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text", 
+                                    "text": user_prompt
+                                },
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/jpeg;base64,{encoded_image}"
+                                    }
