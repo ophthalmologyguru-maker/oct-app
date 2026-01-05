@@ -22,7 +22,6 @@ st.markdown("""
     padding: 1rem;
     max-width: 100%;
 }
-/* Hides standard Streamlit elements */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 header {visibility: hidden;}
@@ -37,20 +36,12 @@ header {visibility: hidden;}
     padding-bottom: 0.5rem;
 }
 
-/* ------------------------------------------------------- */
-/* GREEN REPORT STYLE (Matches Image 2a)                  */
-/* ------------------------------------------------------- */
-/* This targets the st.code box to make it green */
-[data-testid="stCodeBlock"] {
-    background-color: #dcfce7 !important; /* Light Green Background */
-    border: 1px solid #86efac;            /* Slightly darker green border */
-    border-radius: 10px;
-    padding: 15px;
-}
-/* Ensures text inside the green box is dark and readable */
-[data-testid="stCodeBlock"] code {
-    color: #064e3b !important;            /* Dark Green/Black text */
-    font-family: sans-serif !important;   /* Cleaner look than monospace */
+/* Report Box Styling - Clean Document Look */
+.report-box {
+    border: 1px solid #e0e0e0;
+    padding: 20px;
+    border-radius: 5px;
+    background-color: transparent; /* Default Streamlit background */
 }
 </style>
 """, unsafe_allow_html=True)
@@ -246,14 +237,9 @@ if image_file:
                     # --- REPORT DISPLAY SECTION ---
                     st.markdown("<div class='report-title'>📋 Clinical Report</div>", unsafe_allow_html=True)
                     
-                    # 1. CAPTION with instructions
-                    st.caption("ℹ️ To Copy: Tap the copy icon in the top-right corner of the green box below.")
+                    # Using simple Markdown ensures the report looks like a standard document
+                    st.markdown(report_text)
                     
-                    # 2. GREEN REPORT BOX (Styled via CSS above, retains Copy button)
-                    st.code(report_text, language="markdown")
-                    
-                    st.success("Analysis Complete")
-
                 except Exception as e:
                     st.error(f"Analysis Error: {e}")
     else:
