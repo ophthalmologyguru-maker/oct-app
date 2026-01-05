@@ -34,10 +34,6 @@ header {visibility: hidden;}
     margin-bottom: 1rem;
     padding-bottom: 0.5rem;
 }
-/* Make the warning box stand out */
-.stAlert {
-    font-weight: 500;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -160,39 +156,29 @@ MODALITY_INSTRUCTIONS = {
 # =========================================================
 st.write(f"### Upload {modality} Scan")
 
-# 1. Instruction Note
 st.info("ℹ️ **Note:** Tap **'Browse files'** to upload an image from your **Device** (Android, iPhone, PC, Mac, or Linux).") 
 
-# 2. File Uploader
 image_file = st.file_uploader("Choose an image file", type=["jpg", "jpeg", "png"])
 
-# 3. Disclaimer
 st.warning(
     """
     ⚠️ **AI MEDICAL DISCLAIMER**
     
     This application uses artificial intelligence to assist in the interpretation of ophthalmic images.
-    
-    The output is for **educational and clinical support purposes only** and **does not constitute a medical diagnosis, clinical decision, or treatment recommendation.**
-    
-    All results must be interpreted by a **qualified ophthalmologist** in conjunction with clinical examination, patient history, and other relevant investigations.
-    
+    The output is for **educational and clinical support purposes only** and **does not constitute a medical diagnosis.**
     **This tool does not replace professional medical judgment.**
     """
 )
 
-# 4. Acknowledgement
 acknowledgement = st.checkbox(
     "✅ I acknowledge that I have read the disclaimer above and understand this tool is for support purposes only."
 )
 
-# 5. Logic: Show Preview and Analyze Button ONLY if File Uploaded + Acknowledged
 if image_file:
     # Show Preview
     st.image(image_file, caption="Scan Preview", width=300)
     
     if acknowledgement:
-        # Show Button
         if st.button("Analyze Scan", type="primary"):
             with st.spinner("Dr. Masood's AI is analyzing..."):
                 try:
@@ -206,19 +192,40 @@ if image_file:
                     """
 
                     messages = [
-                        {
-                            "role": "system", 
-                            "content": SYSTEM_PROMPT
-                        },
+                        {"role": "system", "content": SYSTEM_PROMPT},
                         {
                             "role": "user",
                             "content": [
-                                {
-                                    "type": "text", 
-                                    "text": user_prompt
-                                },
+                                {"type": "text", "text": user_prompt},
                                 {
                                     "type": "image_url",
                                     "image_url": {
                                         "url": f"data:image/jpeg;base64,{encoded_image}"
                                     }
+                                }
+                            ]
+                        }
+                    ]
+
+                    response = client.chat.completions.create(
+                        model="meta-llama/llama-4-scout-17b-16e-instruct",
+                        messages=messages,
+                        temperature=0.1
+                    )
+
+                    st.markdown("<div class='report-title'>📋 Clinical Report</div>", unsafe_allow_html=True)
+                    st.markdown(response.choices[0].message.content)
+                    st.success("Analysis Complete")
+
+                except Exception as e:
+                    st.error(f"Analysis Error: {e}")
+    else:
+        st.info("👆 **Please check the acknowledgement box above to enable the Analyze button.**")
+
+# =========================================================
+# FOOTER
+# =========================================================
+st.markdown(
+    "<hr><center><small>Masood Alam Eye Diagnostics | AI Clinical Support Tool</small></center>",
+    unsafe_allow_html=True
+)
