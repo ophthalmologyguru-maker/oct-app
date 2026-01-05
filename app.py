@@ -1,218 +1,293 @@
 import streamlit as st
-import os
-from groq import Groq
 import base64
-from PIL import Image
+from groq import Groq
 from PyPDF2 import PdfReader
 
-# --- 1. CONFIGURATION & STYLING ---
-st.set_page_config(page_title="Masood Alam Eye Diagnostics", layout="wide", page_icon="👁️")
+# =========================================================
+# PAGE CONFIGURATION
+# =========================================================
+st.set_page_config(
+    page_title="Masood Alam Eye Diagnostics",
+    layout="wide",
+    page_icon="👁️"
+)
 
-# CSS Hack: Removes padding to make camera full-width on mobile
+# =========================================================
+# STYLING
+# =========================================================
 st.markdown("""
-    <style>
-        /* Remove default Streamlit padding */
-        .block-container {
-            padding-top: 1rem;
-            padding-bottom: 0rem;
-            padding-left: 0rem;
-            padding-right: 0rem;
-            max-width: 100%;
-        }
-        /* Force Camera to fill screen */
-        div[data-testid="stCameraInput"] {
-            width: 100% !important;
-        }
-        div[data-testid="stCameraInput"] video {
-            width: 100% !important;
-            object-fit: cover;
-            border-radius: 10px;
-        }
-        /* Professional Report Styling */
-        .report-header {
-            color: #0e1117;
-            font-weight: bold;
-            font-size: 1.2rem;
-            margin-top: 20px;
-            border-bottom: 2px solid #ff4b4b;
-        }
-    </style>
+<style>
+.block-container {
+    padding: 1rem;
+    max-width: 100%;
+}
+div[data-testid="stCameraInput"] video {
+    width: 100% !important;
+    object-fit: cover;
+    border-radius: 10px;
+}
+.report-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    border-bottom: 2px solid #ff4b4b;
+    margin-bottom: 1rem;
+}
+</style>
 """, unsafe_allow_html=True)
 
-# Access API Key safely
+# =========================================================
+# API KEY
+# =========================================================
 try:
     api_key = st.secrets["GROQ_API_KEY"]
-except:
-    st.error("⚠️ Security Error: API Key not found. Please set GROQ_API_KEY in Streamlit Secrets.")
+except KeyError:
+    st.error("GROQ_API_KEY not found in Streamlit secrets.")
     st.stop()
 
-# --- HEADER ---
-st.title("👁️ Masood Alam Eye Diagnostics")
-st.markdown("### AI-Powered Ophthalmic Consultant")
+client = Groq(api_key=api_key)
 
-# --- 2. SIDEBAR & INPUT ---
+# =========================================================
+# HEADER
+# =========================================================
+st.title("👁️ Masood Alam Eye Diagnostics")
+st.caption("AI-assisted ophthalmic imaging interpretation")
+
+# =========================================================
+# SIDEBAR
+# =========================================================
 with st.sidebar:
-    st.header("Select Modality")
-    task_type = st.radio(
-        "Modality:",
+    st.header("Imaging Modality")
+
+    modality = st.radio(
+        "Select modality",
         [
-            "OCT Macula",          # Separated
-            "OCT ONH (Glaucoma)",  # Separated
-            "Visual Field (Perimetry)", 
-            "Corneal Topography", 
-            "Fluorescein Angiography (FFA)", 
+            "OCT Macula",
+            "OCT ONH (Glaucoma)",
+            "Visual Field (Perimetry)",
+            "Corneal Topography",
+            "Fluorescein Angiography (FFA)",
             "OCT Angiography (OCTA)",
             "Ultrasound B-Scan"
         ]
     )
+
+    input_method = st.radio("Input method", ["Upload Image", "Use Camera"])
+
+    report_style = st.selectbox(
+        "Reporting style",
+        ["Consultant Clinical Report", "Exam-Oriented (FCPS / MRCOphth)"]
+    )
+
+    # -----------------------------------------------------
+    # SIDEBAR DISCLAIMER (ALWAYS VISIBLE)
+    # -----------------------------------------------------
     st.divider()
-    input_method = st.radio("Input Method:", ["Upload Image File", "Use Camera"])
-    
-    st.info(f"Mode: **{task_type}**")
-    st.caption("Powered by Llama 4 Vision (Scout)")
+    st.warning(
+        "⚠️ **AI Medical Disclaimer**\n\n"
+        "This application uses artificial intelligence to assist in the interpretation "
+        "of ophthalmic imaging.\n\n"
+        "The output is for educational and clinical support purposes only and does not "
+        "constitute a medical diagnosis, treatment recommendation, or clinical decision.\n\n"
+        "Final interpretation and patient management must be performed by a qualified ophthalmologist."
+    )
 
-# --- 3. HELPER FUNCTIONS ---
-def encode_image(image_file):
-    return base64.b64encode(image_file.getvalue()).decode('utf-8')
+# =========================================================
+# HELPER FUNCTIONS
+# =========================================================
+def encode_image(file):
+    return base64.b64encode(file.getvalue()).decode("utf-8")
 
-def get_pdf_text(filename="REFERNCE.pdf"):
+def load_reference_text(path="REFERNCE.pdf"):
     try:
-        reader = PdfReader(filename)
+        reader = PdfReader(path)
         text = ""
-        # Read first 50 pages to ensure context coverage
         for i, page in enumerate(reader.pages):
-            if i > 50: break 
-            text += page.extract_text()
-        return text
-    except FileNotFoundError:
-        return "Reference text not available. Relying on internal clinical knowledge."
+            if i > 40:
+                break
+            text += page.extract_text() or ""
+        return text[:4000]
+    except:
+        return ""
 
-# --- 4. MAIN LOGIC ---
+# =========================================================
+# SYSTEM PROMPT (REGULATORY + SAFETY GUARDRAIL)
+# =========================================================
+SYSTEM_PROMPT = """
+You are an artificial intelligence system designed to assist qualified ophthalmologists
+by generating structured ophthalmic imaging reports.
+
+REGULATORY & SAFETY RULES (NON-NEGOTIABLE):
+- You are NOT a diagnostic system
+- You do NOT provide medical diagnoses or treatment recommendations
+- You provide clinical support only
+- All language must be probability-based and non-definitive
+- Use phrases such as:
+  "findings are consistent with"
+  "features are suggestive of"
+  "correlation with clinical findings is advised"
+
+STRICTLY PROHIBITED:
+- "diagnosis confirmed"
+- "this proves"
+- "definitive diagnosis"
+- Any treatment advice
+- Teaching or explanatory language
+
+MANDATORY OUTPUT STRUCTURE (EXACT):
+
+SCAN QUALITY:
+KEY FINDINGS:
+PATTERN ANALYSIS:
+CLINICAL IMPRESSION:
+DIFFERENTIAL CONSIDERATIONS:
+LIMITATIONS / NOTES:
+"""
+
+# =========================================================
+# MODALITY-SPECIFIC INSTRUCTIONS
+# =========================================================
+MODALITY_INSTRUCTIONS = {
+    "OCT Macula": """
+Focus on:
+- Retinal thickness profile
+- Intraretinal fluid (IRF) / subretinal fluid (SRF)
+- Integrity of ELM and ellipsoid zone
+- RPE changes (drusen, PED, atrophy)
+""",
+
+    "OCT ONH (Glaucoma)": """
+Focus on:
+- RNFL average and quadrant thickness
+- ISNT rule assessment
+- Optic disc morphology and cupping
+""",
+
+    "Visual Field (Perimetry)": """
+Focus on:
+- Reliability indices
+- Mean deviation (MD), PSD, GHT
+- Pattern: arcuate defect, nasal step, central island
+""",
+
+    "Corneal Topography": """
+Focus on:
+- Axial curvature pattern
+- Anterior/posterior elevation
+- Pachymetry and thinnest point
+""",
+
+    "Fluorescein Angiography (FFA)": """
+Focus on:
+- Angiographic phase
+- Leakage, pooling, staining, window defects
+- Areas of non-perfusion
+""",
+
+    "OCT Angiography (OCTA)": """
+Focus on:
+- Superficial and deep capillary plexus
+- FAZ morphology
+- Neovascular networks
+""",
+
+    "Ultrasound B-Scan": """
+Focus on:
+- Retinal vs vitreous detachment
+- Mass reflectivity
+- Dynamic movement
+"""
+}
+
+# =========================================================
+# IMAGE INPUT
+# =========================================================
 image_file = None
 
-if input_method == "Upload Image File":
-    image_file = st.file_uploader("Upload Scan", type=['png', 'jpg', 'jpeg'])
+if input_method == "Upload Image":
+    image_file = st.file_uploader("Upload scan image", type=["jpg", "jpeg", "png"])
 else:
-    # Camera widget (now full width due to CSS above)
-    image_file = st.camera_input("Capture Scan")
+    image_file = st.camera_input("Capture image")
 
-if image_file and st.button("Analyze Scan"):
-    with st.spinner("Analyzing..."):
+# =========================================================
+# USER ACKNOWLEDGEMENT (HARD GATE)
+# =========================================================
+st.divider()
+consent = st.checkbox(
+    "I understand that this is an AI-assisted clinical support tool and does not replace professional medical judgment."
+)
+
+if image_file and not consent:
+    st.warning("Please acknowledge the AI medical disclaimer to proceed.")
+
+# =========================================================
+# ANALYSIS
+# =========================================================
+if image_file and consent and st.button("Analyze Scan"):
+    with st.spinner("Generating clinical report..."):
         try:
-            client = Groq(api_key=api_key)
-            base64_image = encode_image(image_file)
-            book_text = get_pdf_text("REFERNCE.pdf")
+            encoded_image = encode_image(image_file)
+            reference_text = load_reference_text()
 
-            # --- DR. MASOOD'S SPECIFIC PROTOCOLS ---
-            
-            if task_type == "OCT Macula":
-                specific_instruction = """
-                **STRICT REPORT FORMAT (Macula Focus):**
-                1. **Scan Quality**: Check Centration & Signal Strength.
-                2. **Quantitative Analysis**:
-                   - Central Subfoveal Mean Thickness (CSMT).
-                   - Cube Volume / Center Point Thickness.
-                3. **Morphology**: 
-                   - Retinal Layers (ILM, ELM, IS/OS integrity).
-                   - RPE status (Drusen, PED, Atrophy).
-                4. **Pathology**: Identify Fluid (IRF/SRF), Cystoid Edema, or Traction (VMT/ERM).
-                5. **Diagnosis**: e.g., AMD (Wet/Dry), DME, CSR, or Macular Hole.
-                """
+            user_prompt = f"""
+MODALITY: {modality}
+REPORT STYLE: {report_style}
 
-            elif task_type == "OCT ONH (Glaucoma)":
-                specific_instruction = """
-                **STRICT REPORT FORMAT (Optic Nerve Focus):**
-                1. **Scan Quality**: Check Signal Strength and Disc Centration.
-                2. **RNFL Analysis**: 
-                   - Average Thickness (Microns).
-                   - Quadrant Analysis (ISNT rule adherence).
-                   - Look for thinning (Red/Yellow zones).
-                3. **Optic Nerve Head (ONH)**: 
-                   - Cup-to-Disc Ratio (Vertical/Horizontal).
-                   - Neuroretinal Rim status.
-                4. **Diagnosis**: Consistent with Glaucoma, Suspect, or Normal.
-                """
-            
-            elif task_type == "Visual Field (Perimetry)":
-                specific_instruction = """
-                **STRICT REPORT FORMAT:**
-                1. **Reliability Analysis**: Fixation Losses, False Pos/Neg (<33%), Trigger Happy?
-                2. **Global Indices**: GHT (Outside Normal Limits?), MD, and PSD.
-                3. **Visual Field Defects**: Arcuate, Nasal Step, Paracentral, or Hemianopic.
-                4. **Final Clinical Interpretation**: Glaucomatous vs Neurological defect.
-                """
-            
-            elif task_type == "Corneal Topography":
-                specific_instruction = """
-                **STRICT REPORT FORMAT:**
-                1. **Curvature Maps**: Analyze Axial Map (Steepening patterns? K-max?).
-                2. **Elevation Maps**: Check Anterior & Posterior Float (Islands of elevation >15-20µm?).
-                3. **Pachymetry**: Thinnest point location & value.
-                4. **Diagnosis**: Keratoconus (Inferior steepening/Asymmetric Bowtie) vs Regular Astigmatism.
-                """
-            
-            elif task_type == "Fluorescein Angiography (FFA)":
-                specific_instruction = """
-                **STRICT REPORT FORMAT:**
-                1. **Phase Identification**: Arterial, Arteriovenous, or Recirculation phase?
-                2. **Hyperfluorescence**: Leakage, Pooling, Staining, or Window Defect.
-                3. **Hypofluorescence**: Blocking or Non-perfusion (Ischemia).
-                4. **Diagnosis**: CNVM, DR, Vein Occlusion, or CSR.
-                """
-            
-            elif task_type == "OCT Angiography (OCTA)":
-                specific_instruction = """
-                **STRICT REPORT FORMAT:**
-                1. **Vascular Zones**: Analyze Superficial, Deep, and Choriocapillaris slabs.
-                2. **Pathology**: Look for Neovascular Networks (Type 1/2) or FAZ enlargement (Ischemia).
-                3. **Artifacts**: Note any projection or motion artifacts.
-                4. **Diagnosis**: CNV presence or Macular Ischemia.
-                """
+INSTRUCTIONS:
+{MODALITY_INSTRUCTIONS[modality]}
 
-            else: 
-                specific_instruction = "Provide a structured clinical report: Findings, Diagnosis, and Management Plan."
+REFERENCE TERMINOLOGY (FOR LANGUAGE CONSISTENCY ONLY):
+{reference_text}
+"""
 
-            # Master System Prompt
             messages = [
+                {"role": "system", "content": SYSTEM_PROMPT},
                 {
                     "role": "user",
                     "content": [
-                        {
-                            "type": "text", 
-                            "text": f"""
-                            ACT AS: Senior Consultant Ophthalmologist (Dr. Masood Alam Shah).
-                            TASK: Analyze this {task_type} scan.
-                            
-                            MANDATORY RULES:
-                            1. Do NOT explain what the test is. Do NOT use phrases like "Step 1" or "The image shows".
-                            2. Go STRAIGHT to the clinical findings using the format below.
-                            3. Be concise and professional.
-                            
-                            {specific_instruction}
-                            
-                            REFERENCE CONTEXT: {book_text[:5000]}
-                            """ 
-                        },
+                        {"type": "text", "text": user_prompt},
                         {
                             "type": "image_url",
                             "image_url": {
-                                "url": f"data:image/jpeg;base64,{base64_image}"
+                                "url": f"data:image/jpeg;base64,{encoded_image}"
                             }
                         }
                     ]
                 }
             ]
 
-            # MODEL UPDATED: Switching to Llama 4 Scout (The new 2025 Standard)
-            chat_completion = client.chat.completions.create(
+            response = client.chat.completions.create(
+                model="meta-llama/llama-4-scout-17b-16e-instruct",
                 messages=messages,
-                model="meta-llama/llama-4-scout-17b-16e-instruct", 
+                temperature=0.2
             )
 
-            # Display Report
-            st.markdown("### 📋 Clinical Report")
-            st.write(chat_completion.choices[0].message.content)
-            st.success("Analysis Complete")
+            # -------------------------------------------------
+            # REPORT-LEVEL DISCLAIMER
+            # -------------------------------------------------
+            st.info(
+                "⚠️ **AI-Generated Clinical Support Output**  \n"
+                "This report is generated by an artificial intelligence system and is intended "
+                "to support clinical assessment only. It does not replace professional medical "
+                "judgment. Correlation with clinical findings is essential."
+            )
+
+            st.markdown("<div class='report-title'>📋 Clinical Imaging Report</div>", unsafe_allow_html=True)
+            st.text(response.choices[0].message.content)
+
+            st.success("Report generated successfully")
 
         except Exception as e:
-            st.error(f"Error: {e}")
+            st.error(f"Analysis failed: {e}")
+
+# =========================================================
+# FOOTER DISCLAIMER
+# =========================================================
+st.markdown(
+    "<hr style='margin-top:2rem;'>"
+    "<small style='color:gray;'>"
+    "Masood Alam Eye Diagnostics is an AI-assisted clinical support tool. "
+    "It does not provide medical diagnoses or treatment advice. "
+    "Use is subject to professional clinical judgment."
+    "</small>",
+    unsafe_allow_html=True
+)
