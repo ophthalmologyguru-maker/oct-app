@@ -52,7 +52,6 @@ client = Groq(api_key=api_key)
 # =========================================================
 # HEADER & SHARE APP BUTTON (Top Right)
 # =========================================================
-# Create two columns: Left for Title, Right for "Share App" button
 col_header, col_share = st.columns([7, 2])
 
 with col_header:
@@ -60,11 +59,10 @@ with col_header:
     st.markdown("**AI-Powered Ophthalmic Consultant**")
 
 with col_share:
-    # WhatsApp Encoding for App Link
+    # WhatsApp Encoding for App Link Only
     app_url = "https://eye-diagnostics.streamlit.app/"
     encoded_app_url = urllib.parse.quote(f"Check out this AI Eye Diagnostic tool: {app_url}")
-    # Display Button
-    st.write("") # Spacer to align vertically
+    st.write("") 
     st.link_button("📤 Share App", f"https://wa.me/?text={encoded_app_url}")
 
 # =========================================================
@@ -124,9 +122,9 @@ You are an expert Consultant Ophthalmologist (Dr. Masood Alam Shah).
 Your task is to analyze the provided ophthalmic scan and generate a formal clinical report.
 
 STRICT FORMATTING RULES:
-1. **HEADLINES MUST BE BOLD AND UPPERCASE** (e.g., **SCAN QUALITY:**).
-2. **EXTRACT PATIENT DATA**: You MUST look for Patient Name, ID, DOB, and Age in the image. If found, list them at the top.
-3. **NO FLUFF**: Do not use phrases like "Step 1" or "The image shows". Start directly with the findings.
+1. **USE MARKDOWN BOLD FOR HEADLINES**: All section titles must be surrounded by double asterisks (e.g., **SCAN QUALITY:**).
+2. **EXTRACT PATIENT DATA**: If visible, format as **PATIENT NAME:** [Name], etc.
+3. **NO FLUFF**: Start directly with the findings. No "Step 1" or introductions.
 4. **PROFESSIONAL TONE**: Use precise medical terminology.
 
 REQUIRED OUTPUT STRUCTURE:
@@ -230,26 +228,7 @@ if image_file:
 
                     # --- REPORT DISPLAY SECTION ---
                     st.markdown("<div class='report-title'>📋 Clinical Report</div>", unsafe_allow_html=True)
+                    st.caption("ℹ️ Click the 'Copy' icon in the top-right corner of the box below to copy the full report.")
                     
-                    # 1. Share Report Button
-                    encoded_report = urllib.parse.quote(f"*Masood Alam Eye Diagnostics Report*\n\n{report_text}")
-                    st.link_button("💬 Share Report on WhatsApp", f"https://wa.me/?text={encoded_report}")
-
-                    # 2. Report Window (Single window for Reading AND Copying)
-                    # st.code automatically adds a 'Copy' button in the top right corner
+                    # Using st.code ensures the "Copy" button appears in the top right
                     st.code(report_text, language="markdown")
-                    
-                    st.success("Analysis Complete")
-
-                except Exception as e:
-                    st.error(f"Analysis Error: {e}")
-    else:
-        st.info("👆 **Please check the acknowledgement box above to enable the Analyze button.**")
-
-# =========================================================
-# FOOTER
-# =========================================================
-st.markdown(
-    "<hr><center><small>Masood Alam Eye Diagnostics | AI Clinical Support Tool</small></center>",
-    unsafe_allow_html=True
-)
