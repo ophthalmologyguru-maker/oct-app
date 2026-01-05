@@ -4,28 +4,43 @@ from groq import Groq
 import base64
 from PIL import Image
 from PyPDF2 import PdfReader
-import io
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Masood Alam Eye Diagnostics", layout="wide", page_icon="👁️")
 
-# Access the API Key securely
+# --- CSS HACK FOR FULL-WIDTH CAMERA ---
+st.markdown(
+    """
+    <style>
+    div[data-testid="stCameraInput"] {
+        width: 100% !important;
+    }
+    div[data-testid="stCameraInput"] video {
+        width: 100% !important;
+        height: auto !important;
+        object-fit: cover;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# Access API Key
 try:
     api_key = st.secrets["GROQ_API_KEY"]
 except:
-    st.error("⚠️ Security Error: API Key not found in Secrets. Please add it in Streamlit Settings.")
+    st.error("⚠️ Security Error: API Key not found in Secrets.")
     st.stop()
 
-# --- REBRANDING HEADER ---
+# --- HEADER ---
 st.title("👁️ Masood Alam Eye Diagnostics")
 st.markdown("### AI-Powered Ophthalmic Consultant")
-st.markdown("Select a modality from the sidebar and upload a scan for clinical analysis.")
 
-# --- 2. SIDEBAR SELECTION ---
+# --- 2. SIDEBAR ---
 with st.sidebar:
     st.header("Select Modality")
     task_type = st.radio(
-        "What type of image is this?",
+        "Modality:",
         [
             "OCT (Retina)", 
             "Visual Field (Perimetry)", 
@@ -36,12 +51,8 @@ with st.sidebar:
         ]
     )
     st.divider()
-    
-    # --- INPUT METHOD SELECTION ---
-    input_method = st.radio("Choose Input Method:", ["Upload Image File", "Use Camera"])
-    
-    st.info(f"Currently Analyzing: **{task_type}**")
-    st.caption("Powered by Llama 4 Vision & Groq")
+    input_method = st.radio("Input:", ["Upload Image File", "Use Camera"])
+    st.info(f"Mode: **{task_type}**")
 
 # --- 3. HELPER FUNCTIONS ---
 def encode_image(image_file):
@@ -51,63 +62,93 @@ def get_pdf_text(filename="REFERNCE.pdf"):
     try:
         reader = PdfReader(filename)
         text = ""
-        # Read first 45 pages to capture key diagnostic criteria
+        # Read first 50 pages to ensure all chapters are covered
         for i, page in enumerate(reader.pages):
-            if i > 45: break 
+            if i > 50: break 
             text += page.extract_text()
         return text
     except FileNotFoundError:
-        return "Error: REFERNCE.pdf not found. Please ensure the file is named exactly 'REFERNCE.pdf' in GitHub."
+        return "Reference text not available. Relying on internal medical knowledge."
 
 # --- 4. MAIN LOGIC ---
-
-# Smart Input Handling
 image_file = None
 
 if input_method == "Upload Image File":
-    image_file = st.file_uploader("Upload Patient Image", type=['png', 'jpg', 'jpeg'])
+    image_file = st.file_uploader("Upload Scan", type=['png', 'jpg', 'jpeg'])
 else:
-    # This widget works INSIDE the browser, preventing the 'refresh' crash on mobile
-    image_file = st.camera_input("Take a Photo of the Scan")
+    image_file = st.camera_input("Capture Scan")
 
 if image_file and st.button("Analyze Scan"):
-    with st.spinner(f"Consulting AI about {task_type}..."):
+    with st.spinner("Consulting Dr. Masood's AI..."):
         try:
             client = Groq(api_key=api_key)
-
-            # Encode Image directly from the file object
             base64_image = encode_image(image_file)
-            
-            # Get Context from the book
             book_text = get_pdf_text("REFERNCE.pdf")
 
-            # --- CUSTOM PROMPTS FOR EACH MODULE ---
+            # --- PROFESSIONAL CLINICAL PROMPTS ---
+            # These prompts force the AI to act like a doctor, not a teacher.
+            
             if task_type == "OCT (Retina)":
-                specific_instruction = "Analyze this OCT scan. Identify layers (ILM, RPE), look for fluid (SRF, IRF), PEDs, or atrophy. Differentiate between wet AMD and DME features."
+                specific_instruction = """
+                REPORT FORMAT:
+                1. **Scan Quality**: Comment on Signal Strength (aim for >6) and Centration.
+                2. **Morphology**: Describe retinal interface (vitreous), layers (ILM to RPE), and contour.
+                3. **Pathology**: Identify Fluid (SRF/IRF), Edema (CSMT), Drusen, or Disruption.
+                4. **Impression**: Give a concise diagnosis (e.g., 'Consistent with DME' or 'Wet AMD').
+                """
             
             elif task_type == "Visual Field (Perimetry)":
-                specific_instruction = "Analyze this Humphrey Visual Field. Identify the pattern (e.g., arcuate defect, nasal step, central island). Assess reliability indices (fixation losses, false positives) and determine if the defect aligns with glaucoma or neurological issues."
+                specific_instruction = """
+                REPORT FORMAT:
+                1. **Reliability**: Analyze Fixation Losses (<20%), False Pos/Neg (<33%). Check for 'Trigger Happy' (dB >40).
+                2. **Pattern Deviation**: Describe defects (e.g., Arcuate, Nasal Step, Central Island, Altitudinal).
+                3. **Indices**: Interpret GHT (Outside Normal Limits?), MD (severity), and PSD (focal loss).
+                4. **Correlate**: Suggest if consistent with Glaucoma (horizontal raphe respect) or Neuro (vertical midline).
+                """
             
             elif task_type == "Corneal Topography":
-                specific_instruction = "Analyze this Pentacam/Topography map. Look for steepening patterns (Keratoconus, pellucid marginal degeneration), astigmatism type (with/against the rule), and pachymetry thinning."
+                specific_instruction = """
+                REPORT FORMAT:
+                1. **Curvature**: Analyze Axial Map (Steepening patterns, K-max).
+                2. **Elevation**: Check Anterior/Posterior Float (Islands of elevation).
+                3. **Pachymetry**: Locate thinnest point.
+                4. **Impression**: Keratoconus vs. Regular Astigmatism vs. Normal.
+                """
             
             elif task_type == "Fluorescein Angiography (FFA)":
-                specific_instruction = "Analyze this FFA image. Identify the phase (arterial, venous, recirculation). Look for Hyperfluorescence (leakage, pooling, staining, window defects) or Hypofluorescence (blocking, filling defects). Differentiate between CNV leakage and staining drusen."
-            
-            elif task_type == "OCT Angiography (OCTA)":
-                specific_instruction = "Analyze this OCT Angiography (OCTA) scan. Look for capillary dropout (ischemia), enlargement of the FAZ (foveal avascular zone), or presence of neovascular networks (Type 1, 2, or 3). Distinguish between flow voids and artifacts."
-            
-            elif task_type == "Ultrasound B-Scan":
-                specific_instruction = "Analyze this B-Scan. Look for retinal detachment (undulating membrane), vitreous hemorrhage, posterior vitreous detachment, or choroidal masses (melanoma vs nevus reflectivity)."
+                specific_instruction = """
+                REPORT FORMAT:
+                1. **Phase**: Identify arterial, arteriovenous, or recirculation phase.
+                2. **Hyperfluorescence**: Distinguish Leakage (fuzzy borders), Pooling (fixed space), vs Staining.
+                3. **Hypofluorescence**: Identify Blocking (blood) vs Filling Defects (ischemia).
+                4. **Diagnosis**: e.g., CNVM, Ischemic CRVO, CSR.
+                """
 
-            # The Master Prompt
+            else: # General Fallback
+                specific_instruction = "Provide a formal clinical report. Structure: Findings, Impression, Recommendations."
+
+            # The Strict System Prompt
             messages = [
                 {
                     "role": "user",
                     "content": [
                         {
                             "type": "text", 
-                            "text": f"You are an expert Consultant Ophthalmologist at Masood Alam Eye Diagnostics. Use the provided text as your primary knowledge base.\n\nTask: {specific_instruction}\n\nReference Knowledge: {book_text[:6000]}..." 
+                            "text": f"""
+                            ACT AS: Senior Consultant Ophthalmologist.
+                            TONE: Professional, Clinical, Concise.
+                            INSTRUCTION: Analyze the attached {task_type} image.
+                            
+                            STRICT RULES:
+                            - Do NOT output "Step 1", "Step 2", or "Here is the analysis".
+                            - Do NOT define terms (e.g., don't explain what a Visual Field is).
+                            - Start directly with the Report.
+                            - Use the specific format provided below.
+                            
+                            {specific_instruction}
+                            
+                            REFERENCE CONTEXT (Use if relevant): {book_text[:3000]}
+                            """ 
                         },
                         {
                             "type": "image_url",
@@ -119,15 +160,16 @@ if image_file and st.button("Analyze Scan"):
                 }
             ]
 
-            # Send to Llama 4
+            # Call AI
             chat_completion = client.chat.completions.create(
                 messages=messages,
-                model="meta-llama/llama-4-scout-17b-16e-instruct", 
+                model="meta-llama/llama-3.2-11b-vision-preview", # Vision model
             )
 
-            st.subheader(f"Analysis: {task_type}")
-            st.success("Report Generated by Masood Alam Eye Diagnostics AI")
-            st.write(chat_completion.choices[0].message.content)
+            # Display Report
+            st.subheader(f"📋 Clinical Report: {task_type}")
+            st.markdown(chat_completion.choices[0].message.content)
+            st.caption("Auto-generated by Masood Alam Eye Diagnostics. Verify clinically.")
 
         except Exception as e:
-            st.error(f"An error occurred: {e}")
+            st.error(f"Error: {e}")
