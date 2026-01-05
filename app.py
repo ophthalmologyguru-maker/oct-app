@@ -21,11 +21,6 @@ st.markdown("""
     padding: 1rem;
     max-width: 100%;
 }
-div[data-testid="stCameraInput"] video {
-    width: 100% !important;
-    object-fit: cover;
-    border-radius: 10px;
-}
 .report-title {
     font-size: 1.3rem;
     font-weight: 700;
@@ -70,8 +65,6 @@ with st.sidebar:
             "Ultrasound B-Scan"
         ]
     )
-
-    input_method = st.radio("Input method", ["Upload Image", "Use Camera"])
 
     report_style = st.selectbox(
         "Reporting style",
@@ -213,14 +206,10 @@ Focus on:
 }
 
 # =========================================================
-# IMAGE INPUT
+# IMAGE INPUT (FILE UPLOAD ONLY)
 # =========================================================
-image_file = None
-
-if input_method == "Upload Image":
-    image_file = st.file_uploader("Upload scan image", type=["jpg", "jpeg", "png"])
-else:
-    image_file = st.camera_input("Capture image")
+st.write(f"### Upload {modality} Scan")
+image_file = st.file_uploader("Choose an image file", type=["jpg", "jpeg", "png"])
 
 # =========================================================
 # USER ACKNOWLEDGEMENT (HARD GATE)
