@@ -34,6 +34,10 @@ header {visibility: hidden;}
     margin-bottom: 1rem;
     padding-bottom: 0.5rem;
 }
+/* Highlighting the disclaimer to ensure visibility */
+.stAlert {
+    font-weight: 600;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -58,6 +62,21 @@ st.markdown("**AI-Powered Ophthalmic Consultant**")
 # SIDEBAR
 # =========================================================
 with st.sidebar:
+    # --- PROMINENT DISCLAIMER ---
+    st.warning(
+        """
+        ⚠️ **AI MEDICAL DISCLAIMER**
+        
+        This application uses artificial intelligence to assist in the interpretation of ophthalmic images.
+        
+        The output is for **educational and clinical support purposes only** and **does not constitute a medical diagnosis, clinical decision, or treatment recommendation.**
+        
+        All results must be interpreted by a **qualified ophthalmologist** in conjunction with clinical examination, patient history, and other relevant investigations.
+        
+        **This tool does not replace professional medical judgment.**
+        """
+    )
+    
     st.header("Imaging Modality")
 
     modality = st.radio(
@@ -81,9 +100,9 @@ with st.sidebar:
     st.divider()
     st.info(
         "**Instructions:**\n"
-        "1. Select the correct modality.\n"
-        "2. Tap 'Browse files'.\n"
-        "3. Select an image from your device."
+        "1. Acknowledge the disclaimer below.\n"
+        "2. Select the correct modality.\n"
+        "3. Tap 'Browse files' to upload."
     )
 
 # =========================================================
@@ -104,7 +123,7 @@ def load_reference_text(path="REFERNCE.pdf"):
         return ""
 
 # =========================================================
-# SYSTEM PROMPT (Strict Formatting)
+# SYSTEM PROMPT
 # =========================================================
 SYSTEM_PROMPT = """
 You are an expert Consultant Ophthalmologist (Dr. Masood Alam Shah).
@@ -131,91 +150,4 @@ REQUIRED OUTPUT STRUCTURE:
 (Bulleted list of specific anatomical and pathological findings)
 
 **QUANTITATIVE ANALYSIS:**
-(Extract specific numbers if visible: e.g., RNFL thickness, CSMT, C/D Ratio, MD, PSD)
-
-**CLINICAL IMPRESSION:**
-(A concise, probability-based diagnostic summary)
-
-**MANAGEMENT SUGGESTIONS:**
-(Brief recommendations for follow-up or further testing)
-"""
-
-# =========================================================
-# MODALITY INSTRUCTIONS
-# =========================================================
-MODALITY_INSTRUCTIONS = {
-    "OCT Macula": "Focus on: CSMT, Retinal Layers (ILM, ELM, IS/OS), Fluid (IRF/SRF), and RPE status.",
-    "OCT ONH (Glaucoma)": "Focus on: RNFL Thickness (Average & Quadrants), Cup-to-Disc Ratio, and ISNT rule.",
-    "Visual Field (Perimetry)": "Focus on: Reliability indices, GHT, Mean Deviation (MD), PSD, and defect patterns (Arcuate/Nasal Step).",
-    "Corneal Topography": "Focus on: K-max, Thinnest Pachymetry, and Anterior/Posterior Elevation maps.",
-    "Fluorescein Angiography (FFA)": "Focus on: Phases (Arterial/Venous), Leakage vs Staining vs Pooling, and Ischemia.",
-    "OCT Angiography (OCTA)": "Focus on: Vascular density, FAZ size, and Neovascular networks.",
-    "Ultrasound B-Scan": "Focus on: Retinal attachment, Vitreous echoes (Hemorrhage), and Mass lesions."
-}
-
-# =========================================================
-# MAIN APP LOGIC
-# =========================================================
-st.write(f"### Upload {modality} Scan")
-
-# --- UPDATED INSTRUCTION HERE ---
-st.info("ℹ️ **Note:** Tap **'Browse files'** to upload an image from your **Device** (Android, iPhone, PC, Mac, or Linux).") 
-
-image_file = st.file_uploader("Choose an image file", type=["jpg", "jpeg", "png"])
-
-if image_file:
-    # Show preview
-    st.image(image_file, caption="Scan Preview", width=300)
-    
-    # Analyze Button
-    if st.button("Analyze Scan", type="primary"):
-        with st.spinner("Dr. Masood's AI is analyzing..."):
-            try:
-                encoded_image = encode_image(image_file)
-                reference_text = load_reference_text()
-
-                user_prompt = f"""
-                MODALITY: {modality}
-                CONTEXT: {MODALITY_INSTRUCTIONS[modality]}
-                REFERENCE DATA: {reference_text}
-                """
-
-                messages = [
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": user_prompt},
-                            {
-                                "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:image/jpeg;base64,{encoded_image}"
-                                }
-                            }
-                        ]
-                    }
-                ]
-
-                response = client.chat.completions.create(
-                    model="meta-llama/llama-4-scout-17b-16e-instruct",
-                    messages=messages,
-                    temperature=0.1
-                )
-
-                # Output
-                st.markdown("<div class='report-title'>📋 Clinical Report</div>", unsafe_allow_html=True)
-                st.markdown(response.choices[0].message.content)
-                
-                # Disclaimer
-                st.warning("⚠️ AI-Generated Report. Verify all findings clinically.")
-
-            except Exception as e:
-                st.error(f"Analysis Error: {e}")
-
-# =========================================================
-# FOOTER
-# =========================================================
-st.markdown(
-    "<hr><center><small>Masood Alam Eye Diagnostics | AI Clinical Support Tool</small></center>",
-    unsafe_allow_html=True
-)
+(Extract specific numbers if visible: e.g., RNFL thickness, CSM
