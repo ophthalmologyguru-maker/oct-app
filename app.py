@@ -2,6 +2,7 @@ import streamlit as st
 import base64
 from groq import Groq
 from PyPDF2 import PdfReader
+import urllib.parse  # Added for WhatsApp links
 
 # =========================================================
 # PAGE CONFIGURATION
@@ -81,10 +82,9 @@ with st.sidebar:
     st.divider()
     st.info(
         "**Instructions:**\n"
-        "1. Select modality.\n"
-        "2. Upload scan.\n"
-        "3. Acknowledge disclaimer.\n"
-        "4. Click Analyze."
+        "1. Select the correct modality.\n"
+        "2. Tap 'Browse files'.\n"
+        "3. Select an image from your device."
     )
 
 # =========================================================
@@ -160,6 +160,7 @@ st.info("ℹ️ **Note:** Tap **'Browse files'** to upload an image from your **
 
 image_file = st.file_uploader("Choose an image file", type=["jpg", "jpeg", "png"])
 
+# --- DISCLAIMER ---
 st.warning(
     """
     ⚠️ **AI MEDICAL DISCLAIMER**
@@ -170,12 +171,12 @@ st.warning(
     """
 )
 
+# --- ACKNOWLEDGEMENT ---
 acknowledgement = st.checkbox(
     "✅ I acknowledge that I have read the disclaimer above and understand this tool is for support purposes only."
 )
 
 if image_file:
-    # Show Preview
     st.image(image_file, caption="Scan Preview", width=300)
     
     if acknowledgement:
@@ -212,9 +213,36 @@ if image_file:
                         messages=messages,
                         temperature=0.1
                     )
+                    
+                    report_text = response.choices[0].message.content
 
+                    # --- REPORT DISPLAY ---
                     st.markdown("<div class='report-title'>📋 Clinical Report</div>", unsafe_allow_html=True)
-                    st.markdown(response.choices[0].message.content)
+                    
+                    # --- ACTION BUTTONS (TOP RIGHT) ---
+                    # WhatsApp Encoding
+                    app_url = "https://eye-diagnostics.streamlit.app/"
+                    encoded_app_url = urllib.parse.quote(f"Check out this AI Eye Diagnostic tool: {app_url}")
+                    encoded_report = urllib.parse.quote(f"*Masood Alam Eye Diagnostics Report*\n\n{report_text}")
+                    
+                    c1, c2, c3 = st.columns([1, 1, 2])
+                    
+                    with c1:
+                        st.link_button("📤 Share App", f"https://wa.me/?text={encoded_app_url}")
+                    
+                    with c2:
+                        st.link_button("💬 Share Report", f"https://wa.me/?text={encoded_report}")
+                    
+                    with c3:
+                        st.caption("To Copy: Click the icon in top-right of the box below ⬇️")
+
+                    # Display Report (Code block has native 'Copy' button)
+                    st.code(report_text, language="markdown")
+                    
+                    # Display Report (Visual Markdown for reading)
+                    st.markdown("---")
+                    st.markdown(report_text)
+                    
                     st.success("Analysis Complete")
 
                 except Exception as e:
