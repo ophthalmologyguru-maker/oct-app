@@ -2,7 +2,7 @@ import streamlit as st
 import base64
 from groq import Groq
 from PyPDF2 import PdfReader
-import urllib.parse  # Added for WhatsApp links
+import urllib.parse
 
 # =========================================================
 # PAGE CONFIGURATION
@@ -50,10 +50,22 @@ except KeyError:
 client = Groq(api_key=api_key)
 
 # =========================================================
-# HEADER
+# HEADER & SHARE APP BUTTON (Top Right)
 # =========================================================
-st.title("👁️ Masood Alam Eye Diagnostics")
-st.markdown("**AI-Powered Ophthalmic Consultant**")
+# Create two columns: Left for Title, Right for "Share App" button
+col_header, col_share = st.columns([7, 2])
+
+with col_header:
+    st.title("👁️ Masood Alam Eye Diagnostics")
+    st.markdown("**AI-Powered Ophthalmic Consultant**")
+
+with col_share:
+    # WhatsApp Encoding for App Link
+    app_url = "https://eye-diagnostics.streamlit.app/"
+    encoded_app_url = urllib.parse.quote(f"Check out this AI Eye Diagnostic tool: {app_url}")
+    # Display Button
+    st.write("") # Spacer to align vertically
+    st.link_button("📤 Share App", f"https://wa.me/?text={encoded_app_url}")
 
 # =========================================================
 # SIDEBAR
@@ -216,32 +228,16 @@ if image_file:
                     
                     report_text = response.choices[0].message.content
 
-                    # --- REPORT DISPLAY ---
+                    # --- REPORT DISPLAY SECTION ---
                     st.markdown("<div class='report-title'>📋 Clinical Report</div>", unsafe_allow_html=True)
                     
-                    # --- ACTION BUTTONS (TOP RIGHT) ---
-                    # WhatsApp Encoding
-                    app_url = "https://eye-diagnostics.streamlit.app/"
-                    encoded_app_url = urllib.parse.quote(f"Check out this AI Eye Diagnostic tool: {app_url}")
+                    # 1. Share Report Button
                     encoded_report = urllib.parse.quote(f"*Masood Alam Eye Diagnostics Report*\n\n{report_text}")
-                    
-                    c1, c2, c3 = st.columns([1, 1, 2])
-                    
-                    with c1:
-                        st.link_button("📤 Share App", f"https://wa.me/?text={encoded_app_url}")
-                    
-                    with c2:
-                        st.link_button("💬 Share Report", f"https://wa.me/?text={encoded_report}")
-                    
-                    with c3:
-                        st.caption("To Copy: Click the icon in top-right of the box below ⬇️")
+                    st.link_button("💬 Share Report on WhatsApp", f"https://wa.me/?text={encoded_report}")
 
-                    # Display Report (Code block has native 'Copy' button)
+                    # 2. Report Window (Single window for Reading AND Copying)
+                    # st.code automatically adds a 'Copy' button in the top right corner
                     st.code(report_text, language="markdown")
-                    
-                    # Display Report (Visual Markdown for reading)
-                    st.markdown("---")
-                    st.markdown(report_text)
                     
                     st.success("Analysis Complete")
 
