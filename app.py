@@ -56,7 +56,8 @@ with st.sidebar:
     task_type = st.radio(
         "Modality:",
         [
-            "OCT (Retina)", 
+            "OCT Macula",          # Separated
+            "OCT ONH (Glaucoma)",  # Separated
             "Visual Field (Perimetry)", 
             "Corneal Topography", 
             "Fluorescein Angiography (FFA)", 
@@ -103,37 +104,42 @@ if image_file and st.button("Analyze Scan"):
             book_text = get_pdf_text("REFERNCE.pdf")
 
             # --- DR. MASOOD'S SPECIFIC PROTOCOLS ---
-            # These are hard-coded based on your uploaded Word documents
             
-            if task_type == "Visual Field (Perimetry)":
+            if task_type == "OCT Macula":
                 specific_instruction = """
-                **STRICT REPORT FORMAT (Follow Sequence):**
-                1. **Patient/Exam Details**: Confirm Name/ID visible? Test Type (24-2 vs 30-2). Pupil size (if <2mm note artifact risk).
-                2. **Reliability Analysis**: 
-                   - Fixation Losses (Is it >20%?)
-                   - False Pos/Neg (Is it >33%?)
-                   - Trigger Happy? (Check if dB >40)
-                3. **Global Indices**: 
-                   - Interpret GHT (Outside Normal Limits?)
-                   - Mean Deviation (MD) & Pattern Standard Deviation (PSD).
-                4. **Visual Field Defects**: 
-                   - Identify pattern: Arcuate (Glaucoma?), Nasal Step, Central Island, or Vertical/Hemianopic (Neuro?).
-                5. **Final Clinical Interpretation**: Glaucomatous vs Neurological vs Normal.
-                """
-            
-            elif task_type == "OCT (Retina)":
-                specific_instruction = """
-                **STRICT REPORT FORMAT (Follow Sequence):**
-                1. **Scan Quality**: Check Centration & Signal Strength (Acceptable if >6).
+                **STRICT REPORT FORMAT (Macula Focus):**
+                1. **Scan Quality**: Check Centration & Signal Strength.
                 2. **Quantitative Analysis**:
                    - Central Subfoveal Mean Thickness (CSMT).
-                   - Center Point Thickness (CPT) & Deviation.
+                   - Cube Volume / Center Point Thickness.
                 3. **Morphology**: 
-                   - Vitreomacular Interface (VMA/VMT).
-                   - Retinal Layers (ILM, OPL, ONL integrity).
-                   - RPE/Choroid status.
-                4. **Pathology**: Identify Fluid (IRF/SRF), Drusen, PEDs, or Atrophy.
-                5. **Diagnosis**: e.g., AMD, DME, ERM, or Macular Hole.
+                   - Retinal Layers (ILM, ELM, IS/OS integrity).
+                   - RPE status (Drusen, PED, Atrophy).
+                4. **Pathology**: Identify Fluid (IRF/SRF), Cystoid Edema, or Traction (VMT/ERM).
+                5. **Diagnosis**: e.g., AMD (Wet/Dry), DME, CSR, or Macular Hole.
+                """
+
+            elif task_type == "OCT ONH (Glaucoma)":
+                specific_instruction = """
+                **STRICT REPORT FORMAT (Optic Nerve Focus):**
+                1. **Scan Quality**: Check Signal Strength and Disc Centration.
+                2. **RNFL Analysis**: 
+                   - Average Thickness (Microns).
+                   - Quadrant Analysis (ISNT rule adherence).
+                   - Look for thinning (Red/Yellow zones).
+                3. **Optic Nerve Head (ONH)**: 
+                   - Cup-to-Disc Ratio (Vertical/Horizontal).
+                   - Neuroretinal Rim status.
+                4. **Diagnosis**: Consistent with Glaucoma, Suspect, or Normal.
+                """
+            
+            elif task_type == "Visual Field (Perimetry)":
+                specific_instruction = """
+                **STRICT REPORT FORMAT:**
+                1. **Reliability Analysis**: Fixation Losses, False Pos/Neg (<33%), Trigger Happy?
+                2. **Global Indices**: GHT (Outside Normal Limits?), MD, and PSD.
+                3. **Visual Field Defects**: Arcuate, Nasal Step, Paracentral, or Hemianopic.
+                4. **Final Clinical Interpretation**: Glaucomatous vs Neurological defect.
                 """
             
             elif task_type == "Corneal Topography":
@@ -148,10 +154,19 @@ if image_file and st.button("Analyze Scan"):
             elif task_type == "Fluorescein Angiography (FFA)":
                 specific_instruction = """
                 **STRICT REPORT FORMAT:**
-                1. **Phase Identification**: Arterial, Arteriovenous, or Venous phase?
-                2. **Hyperfluorescence**: Distinguish Leakage (fuzzy borders) vs Pooling (PED) vs Staining (Drusen/Scar) vs Window Defect.
-                3. **Hypofluorescence**: Blocking (Blood/Pigment) vs Filling Defect (Ischemia/Capillary Dropout).
+                1. **Phase Identification**: Arterial, Arteriovenous, or Recirculation phase?
+                2. **Hyperfluorescence**: Leakage, Pooling, Staining, or Window Defect.
+                3. **Hypofluorescence**: Blocking or Non-perfusion (Ischemia).
                 4. **Diagnosis**: CNVM, DR, Vein Occlusion, or CSR.
+                """
+            
+            elif task_type == "OCT Angiography (OCTA)":
+                specific_instruction = """
+                **STRICT REPORT FORMAT:**
+                1. **Vascular Zones**: Analyze Superficial, Deep, and Choriocapillaris slabs.
+                2. **Pathology**: Look for Neovascular Networks (Type 1/2) or FAZ enlargement (Ischemia).
+                3. **Artifacts**: Note any projection or motion artifacts.
+                4. **Diagnosis**: CNV presence or Macular Ischemia.
                 """
 
             else: 
@@ -189,7 +204,6 @@ if image_file and st.button("Analyze Scan"):
             ]
 
             # MODEL UPDATED: Switching to Llama 4 Scout (The new 2025 Standard)
-            # If this fails, use "llama-3.2-90b-vision-preview"
             chat_completion = client.chat.completions.create(
                 messages=messages,
                 model="meta-llama/llama-4-scout-17b-16e-instruct", 
