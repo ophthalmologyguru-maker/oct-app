@@ -21,11 +21,18 @@ st.markdown("""
     padding: 1rem;
     max-width: 100%;
 }
+/* Hides the 'deploy' button and hamburger menu for cleaner look */
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+header {visibility: hidden;}
+
 .report-title {
-    font-size: 1.3rem;
-    font-weight: 700;
-    border-bottom: 2px solid #ff4b4b;
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #0e1117;
+    border-bottom: 3px solid #ff4b4b;
     margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -45,7 +52,7 @@ client = Groq(api_key=api_key)
 # HEADER
 # =========================================================
 st.title("👁️ Masood Alam Eye Diagnostics")
-st.caption("AI-assisted ophthalmic imaging interpretation")
+st.markdown("**AI-Powered Ophthalmic Consultant**")
 
 # =========================================================
 # SIDEBAR
@@ -71,17 +78,12 @@ with st.sidebar:
         ["Consultant Clinical Report", "Exam-Oriented (FCPS / MRCOphth)"]
     )
 
-    # -----------------------------------------------------
-    # SIDEBAR DISCLAIMER (ALWAYS VISIBLE)
-    # -----------------------------------------------------
     st.divider()
-    st.warning(
-        "⚠️ **AI Medical Disclaimer**\n\n"
-        "This application uses artificial intelligence to assist in the interpretation "
-        "of ophthalmic imaging.\n\n"
-        "The output is for educational and clinical support purposes only and does not "
-        "constitute a medical diagnosis, treatment recommendation, or clinical decision.\n\n"
-        "Final interpretation and patient management must be performed by a qualified ophthalmologist."
+    st.info(
+        "**Instructions:**\n"
+        "1. Select the correct modality.\n"
+        "2. Tap 'Browse files'.\n"
+        "3. Select an image from your device."
     )
 
 # =========================================================
@@ -95,202 +97,125 @@ def load_reference_text(path="REFERNCE.pdf"):
         reader = PdfReader(path)
         text = ""
         for i, page in enumerate(reader.pages):
-            if i > 40:
-                break
+            if i > 50: break
             text += page.extract_text() or ""
-        return text[:4000]
+        return text[:5000]
     except:
         return ""
 
 # =========================================================
-# SYSTEM PROMPT (REGULATORY + SAFETY GUARDRAIL)
+# SYSTEM PROMPT (Strict Formatting)
 # =========================================================
 SYSTEM_PROMPT = """
-You are an artificial intelligence system designed to assist qualified ophthalmologists
-by generating structured ophthalmic imaging reports.
+You are an expert Consultant Ophthalmologist (Dr. Masood Alam Shah).
+Your task is to analyze the provided ophthalmic scan and generate a formal clinical report.
 
-REGULATORY & SAFETY RULES (NON-NEGOTIABLE):
-- You are NOT a diagnostic system
-- You do NOT provide medical diagnoses or treatment recommendations
-- You provide clinical support only
-- All language must be probability-based and non-definitive
-- Use phrases such as:
-  "findings are consistent with"
-  "features are suggestive of"
-  "correlation with clinical findings is advised"
+STRICT FORMATTING RULES:
+1. **HEADLINES MUST BE BOLD AND UPPERCASE** (e.g., **SCAN QUALITY:**).
+2. **EXTRACT PATIENT DATA**: You MUST look for Patient Name, ID, DOB, and Age in the image. If found, list them at the top.
+3. **NO FLUFF**: Do not use phrases like "Step 1" or "The image shows". Start directly with the findings.
+4. **PROFESSIONAL TONE**: Use precise medical terminology.
 
-STRICTLY PROHIBITED:
-- "diagnosis confirmed"
-- "this proves"
-- "definitive diagnosis"
-- Any treatment advice
-- Teaching or explanatory language
+REQUIRED OUTPUT STRUCTURE:
 
-MANDATORY OUTPUT STRUCTURE (EXACTLY AS BELOW):
-
-**PATIENT DETAILS:**
-(Extract Name, ID, Age, DOB, and Date of Scan if visible. If not visible, state "Not visible in scan".)
+**PATIENT DATA:**
+- Name: [Extract or "Not Visible"]
+- ID: [Extract or "Not Visible"]
+- Age/DOB: [Extract or "Not Visible"]
+- Date of Scan: [Extract or "Not Visible"]
 
 **SCAN QUALITY:**
-(Assess signal strength and centration)
+(Assess signal strength, centration, and artifacts)
 
 **KEY FINDINGS:**
-(List observations clearly)
+(Bulleted list of specific anatomical and pathological findings)
 
-**PATTERN ANALYSIS:**
-(Analyze specific patterns relevant to the modality)
+**QUANTITATIVE ANALYSIS:**
+(Extract specific numbers if visible: e.g., RNFL thickness, CSMT, C/D Ratio, MD, PSD)
 
 **CLINICAL IMPRESSION:**
-(Probability-based summary)
+(A concise, probability-based diagnostic summary)
 
-**DIFFERENTIAL CONSIDERATIONS:**
-(List 2-3 possibilities)
-
-**LIMITATIONS / NOTES:**
-(Standard limitations of AI analysis)
+**MANAGEMENT SUGGESTIONS:**
+(Brief recommendations for follow-up or further testing)
 """
 
 # =========================================================
-# MODALITY-SPECIFIC INSTRUCTIONS
+# MODALITY INSTRUCTIONS
 # =========================================================
 MODALITY_INSTRUCTIONS = {
-    "OCT Macula": """
-Focus on:
-- Retinal thickness profile
-- Intraretinal fluid (IRF) / subretinal fluid (SRF)
-- Integrity of ELM and ellipsoid zone
-- RPE changes (drusen, PED, atrophy)
-""",
-
-    "OCT ONH (Glaucoma)": """
-Focus on:
-- RNFL average and quadrant thickness
-- ISNT rule assessment
-- Optic disc morphology and cupping
-""",
-
-    "Visual Field (Perimetry)": """
-Focus on:
-- Reliability indices
-- Mean deviation (MD), PSD, GHT
-- Pattern: arcuate defect, nasal step, central island
-""",
-
-    "Corneal Topography": """
-Focus on:
-- Axial curvature pattern
-- Anterior/posterior elevation
-- Pachymetry and thinnest point
-""",
-
-    "Fluorescein Angiography (FFA)": """
-Focus on:
-- Angiographic phase
-- Leakage, pooling, staining, window defects
-- Areas of non-perfusion
-""",
-
-    "OCT Angiography (OCTA)": """
-Focus on:
-- Superficial and deep capillary plexus
-- FAZ morphology
-- Neovascular networks
-""",
-
-    "Ultrasound B-Scan": """
-Focus on:
-- Retinal vs vitreous detachment
-- Mass reflectivity
-- Dynamic movement
-"""
+    "OCT Macula": "Focus on: CSMT, Retinal Layers (ILM, ELM, IS/OS), Fluid (IRF/SRF), and RPE status.",
+    "OCT ONH (Glaucoma)": "Focus on: RNFL Thickness (Average & Quadrants), Cup-to-Disc Ratio, and ISNT rule.",
+    "Visual Field (Perimetry)": "Focus on: Reliability indices, GHT, Mean Deviation (MD), PSD, and defect patterns (Arcuate/Nasal Step).",
+    "Corneal Topography": "Focus on: K-max, Thinnest Pachymetry, and Anterior/Posterior Elevation maps.",
+    "Fluorescein Angiography (FFA)": "Focus on: Phases (Arterial/Venous), Leakage vs Staining vs Pooling, and Ischemia.",
+    "OCT Angiography (OCTA)": "Focus on: Vascular density, FAZ size, and Neovascular networks.",
+    "Ultrasound B-Scan": "Focus on: Retinal attachment, Vitreous echoes (Hemorrhage), and Mass lesions."
 }
 
 # =========================================================
-# IMAGE INPUT (FILE UPLOAD ONLY)
+# MAIN APP LOGIC
 # =========================================================
 st.write(f"### Upload {modality} Scan")
+
+# --- UPDATED INSTRUCTION HERE ---
+st.info("ℹ️ **Note:** Tap **'Browse files'** to upload an image from your **Device** (Android, iPhone, PC, Mac, or Linux).") 
+
 image_file = st.file_uploader("Choose an image file", type=["jpg", "jpeg", "png"])
 
-# =========================================================
-# USER ACKNOWLEDGEMENT (HARD GATE)
-# =========================================================
-st.divider()
-consent = st.checkbox(
-    "I understand that this is an AI-assisted clinical support tool and does not replace professional medical judgment."
-)
+if image_file:
+    # Show preview
+    st.image(image_file, caption="Scan Preview", width=300)
+    
+    # Analyze Button
+    if st.button("Analyze Scan", type="primary"):
+        with st.spinner("Dr. Masood's AI is analyzing..."):
+            try:
+                encoded_image = encode_image(image_file)
+                reference_text = load_reference_text()
 
-if image_file and not consent:
-    st.warning("Please acknowledge the AI medical disclaimer to proceed.")
+                user_prompt = f"""
+                MODALITY: {modality}
+                CONTEXT: {MODALITY_INSTRUCTIONS[modality]}
+                REFERENCE DATA: {reference_text}
+                """
 
-# =========================================================
-# ANALYSIS
-# =========================================================
-if image_file and consent and st.button("Analyze Scan"):
-    with st.spinner("Generating clinical report..."):
-        try:
-            encoded_image = encode_image(image_file)
-            reference_text = load_reference_text()
-
-            user_prompt = f"""
-MODALITY: {modality}
-REPORT STYLE: {report_style}
-
-INSTRUCTIONS:
-{MODALITY_INSTRUCTIONS[modality]}
-
-REFERENCE TERMINOLOGY (FOR LANGUAGE CONSISTENCY ONLY):
-{reference_text}
-"""
-
-            messages = [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": user_prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{encoded_image}"
+                messages = [
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": user_prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/jpeg;base64,{encoded_image}"
+                                }
                             }
-                        }
-                    ]
-                }
-            ]
+                        ]
+                    }
+                ]
 
-            response = client.chat.completions.create(
-                model="meta-llama/llama-4-scout-17b-16e-instruct",
-                messages=messages,
-                temperature=0.2
-            )
+                response = client.chat.completions.create(
+                    model="meta-llama/llama-4-scout-17b-16e-instruct",
+                    messages=messages,
+                    temperature=0.1
+                )
 
-            # -------------------------------------------------
-            # REPORT-LEVEL DISCLAIMER
-            # -------------------------------------------------
-            st.info(
-                "⚠️ **AI-Generated Clinical Support Output** \n"
-                "This report is generated by an artificial intelligence system and is intended "
-                "to support clinical assessment only. It does not replace professional medical "
-                "judgment. Correlation with clinical findings is essential."
-            )
+                # Output
+                st.markdown("<div class='report-title'>📋 Clinical Report</div>", unsafe_allow_html=True)
+                st.markdown(response.choices[0].message.content)
+                
+                # Disclaimer
+                st.warning("⚠️ AI-Generated Report. Verify all findings clinically.")
 
-            st.markdown("<div class='report-title'>📋 Clinical Imaging Report</div>", unsafe_allow_html=True)
-            st.markdown(response.choices[0].message.content)
-
-            st.success("Report generated successfully")
-
-        except Exception as e:
-            st.error(f"Analysis failed: {e}")
+            except Exception as e:
+                st.error(f"Analysis Error: {e}")
 
 # =========================================================
-# FOOTER DISCLAIMER
+# FOOTER
 # =========================================================
 st.markdown(
-    "<hr style='margin-top:2rem;'>"
-    "<small style='color:gray;'>"
-    "Masood Alam Eye Diagnostics is an AI-assisted clinical support tool. "
-    "It does not provide medical diagnoses or treatment advice. "
-    "Use is subject to professional clinical judgment."
-    "</small>",
+    "<hr><center><small>Masood Alam Eye Diagnostics | AI Clinical Support Tool</small></center>",
     unsafe_allow_html=True
 )
