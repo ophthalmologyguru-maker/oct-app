@@ -8,7 +8,7 @@ from PyPDF2 import PdfReader
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Masood Alam Eye Diagnostics", layout="wide", page_icon="👁️")
 
-# --- CSS HACK FOR FULL-WIDTH CAMERA ---
+# --- CSS HACK FOR FULL-WIDTH CAMERA (Fixes the small window issue) ---
 st.markdown(
     """
     <style>
@@ -25,11 +25,11 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Access API Key
+# Access API Key safely from Secrets
 try:
     api_key = st.secrets["GROQ_API_KEY"]
 except:
-    st.error("⚠️ Security Error: API Key not found in Secrets.")
+    st.error("⚠️ Security Error: API Key not found. Please set GROQ_API_KEY in Streamlit Secrets.")
     st.stop()
 
 # --- HEADER ---
@@ -51,8 +51,11 @@ with st.sidebar:
         ]
     )
     st.divider()
-    input_method = st.radio("Input:", ["Upload Image File", "Use Camera"])
+    # Toggle between Camera and Upload
+    input_method = st.radio("Input Method:", ["Upload Image File", "Use Camera"])
+    
     st.info(f"Mode: **{task_type}**")
+    st.caption("Powered by Llama 4 Vision & Groq")
 
 # --- 3. HELPER FUNCTIONS ---
 def encode_image(image_file):
@@ -76,6 +79,7 @@ image_file = None
 if input_method == "Upload Image File":
     image_file = st.file_uploader("Upload Scan", type=['png', 'jpg', 'jpeg'])
 else:
+    # The camera widget (now full width thanks to the CSS above)
     image_file = st.camera_input("Capture Scan")
 
 if image_file and st.button("Analyze Scan"):
@@ -91,7 +95,7 @@ if image_file and st.button("Analyze Scan"):
             if task_type == "OCT (Retina)":
                 specific_instruction = """
                 REPORT FORMAT:
-                1. **Scan Quality**: Comment on Signal Strength (aim for >6) and Centration.
+                1. **Scan Quality**: Comment on Signal Strength and Centration.
                 2. **Morphology**: Describe retinal interface (vitreous), layers (ILM to RPE), and contour.
                 3. **Pathology**: Identify Fluid (SRF/IRF), Edema (CSMT), Drusen, or Disruption.
                 4. **Impression**: Give a concise diagnosis (e.g., 'Consistent with DME' or 'Wet AMD').
@@ -160,10 +164,10 @@ if image_file and st.button("Analyze Scan"):
                 }
             ]
 
-            # Call AI
+            # Call AI (Using Llama 3.2 Vision for stability)
             chat_completion = client.chat.completions.create(
                 messages=messages,
-                model="meta-llama/llama-3.2-11b-vision-preview", # Vision model
+                model="llama-3.2-11b-vision-preview", 
             )
 
             # Display Report
