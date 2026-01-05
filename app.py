@@ -22,7 +22,6 @@ st.markdown("""
     padding: 1rem;
     max-width: 100%;
 }
-/* Hides the 'deploy' button and hamburger menu for cleaner look */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 header {visibility: hidden;}
@@ -228,7 +227,22 @@ if image_file:
 
                     # --- REPORT DISPLAY SECTION ---
                     st.markdown("<div class='report-title'>📋 Clinical Report</div>", unsafe_allow_html=True)
-                    st.caption("ℹ️ Click the 'Copy' icon in the top-right corner of the box below to copy the full report.")
+                    st.caption("ℹ️ Click the **Copy icon** (top-right of the box) to copy the report.")
                     
                     # Using st.code ensures the "Copy" button appears in the top right
                     st.code(report_text, language="markdown")
+                    
+                    st.success("Analysis Complete")
+
+                except Exception as e:
+                    st.error(f"Analysis Error: {e}")
+    else:
+        st.info("👆 **Please check the acknowledgement box above to enable the Analyze button.**")
+
+# =========================================================
+# FOOTER
+# =========================================================
+st.markdown(
+    "<hr><center><small>Masood Alam Eye Diagnostics | AI Clinical Support Tool</small></center>",
+    unsafe_allow_html=True
+)
