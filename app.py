@@ -8,7 +8,7 @@ from PyPDF2 import PdfReader
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Masood Alam Eye Diagnostics", layout="wide", page_icon="👁️")
 
-# --- CSS HACK FOR FULL-WIDTH CAMERA (Fixes the small window issue) ---
+# --- CSS HACK FOR FULL-WIDTH CAMERA ---
 st.markdown(
     """
     <style>
@@ -25,11 +25,11 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Access API Key safely from Secrets
+# Access API Key
 try:
     api_key = st.secrets["GROQ_API_KEY"]
 except:
-    st.error("⚠️ Security Error: API Key not found. Please set GROQ_API_KEY in Streamlit Secrets.")
+    st.error("⚠️ Security Error: API Key not found in Secrets.")
     st.stop()
 
 # --- HEADER ---
@@ -51,11 +51,8 @@ with st.sidebar:
         ]
     )
     st.divider()
-    # Toggle between Camera and Upload
-    input_method = st.radio("Input Method:", ["Upload Image File", "Use Camera"])
-    
+    input_method = st.radio("Input:", ["Upload Image File", "Use Camera"])
     st.info(f"Mode: **{task_type}**")
-    st.caption("Powered by Llama 4 Vision & Groq")
 
 # --- 3. HELPER FUNCTIONS ---
 def encode_image(image_file):
@@ -79,7 +76,6 @@ image_file = None
 if input_method == "Upload Image File":
     image_file = st.file_uploader("Upload Scan", type=['png', 'jpg', 'jpeg'])
 else:
-    # The camera widget (now full width thanks to the CSS above)
     image_file = st.camera_input("Capture Scan")
 
 if image_file and st.button("Analyze Scan"):
@@ -90,8 +86,6 @@ if image_file and st.button("Analyze Scan"):
             book_text = get_pdf_text("REFERNCE.pdf")
 
             # --- PROFESSIONAL CLINICAL PROMPTS ---
-            # These prompts force the AI to act like a doctor, not a teacher.
-            
             if task_type == "OCT (Retina)":
                 specific_instruction = """
                 REPORT FORMAT:
@@ -128,7 +122,7 @@ if image_file and st.button("Analyze Scan"):
                 4. **Diagnosis**: e.g., CNVM, Ischemic CRVO, CSR.
                 """
 
-            else: # General Fallback
+            else: 
                 specific_instruction = "Provide a formal clinical report. Structure: Findings, Impression, Recommendations."
 
             # The Strict System Prompt
@@ -144,8 +138,8 @@ if image_file and st.button("Analyze Scan"):
                             INSTRUCTION: Analyze the attached {task_type} image.
                             
                             STRICT RULES:
-                            - Do NOT output "Step 1", "Step 2", or "Here is the analysis".
-                            - Do NOT define terms (e.g., don't explain what a Visual Field is).
+                            - Do NOT output "Step 1", "Step 2".
+                            - Do NOT explain definitions.
                             - Start directly with the Report.
                             - Use the specific format provided below.
                             
@@ -164,10 +158,10 @@ if image_file and st.button("Analyze Scan"):
                 }
             ]
 
-            # Call AI (Using Llama 3.2 Vision for stability)
+            # MODEL UPDATED: Using Llama 4 Scout (Current 2026 Standard)
             chat_completion = client.chat.completions.create(
                 messages=messages,
-                model="llama-3.2-11b-vision-preview", 
+                model="meta-llama/llama-4-scout-17b-16e-instruct", 
             )
 
             # Display Report
