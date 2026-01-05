@@ -14,7 +14,7 @@ st.set_page_config(
 )
 
 # =========================================================
-# STYLING
+# STYLING (CSS)
 # =========================================================
 st.markdown("""
 <style>
@@ -22,10 +22,12 @@ st.markdown("""
     padding: 1rem;
     max-width: 100%;
 }
+/* Hides standard Streamlit elements */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 header {visibility: hidden;}
 
+/* Custom Title Style */
 .report-title {
     font-size: 1.5rem;
     font-weight: 800;
@@ -33,6 +35,22 @@ header {visibility: hidden;}
     border-bottom: 3px solid #ff4b4b;
     margin-bottom: 1rem;
     padding-bottom: 0.5rem;
+}
+
+/* ------------------------------------------------------- */
+/* GREEN REPORT STYLE (Matches Image 2a)                  */
+/* ------------------------------------------------------- */
+/* This targets the st.code box to make it green */
+[data-testid="stCodeBlock"] {
+    background-color: #dcfce7 !important; /* Light Green Background */
+    border: 1px solid #86efac;            /* Slightly darker green border */
+    border-radius: 10px;
+    padding: 15px;
+}
+/* Ensures text inside the green box is dark and readable */
+[data-testid="stCodeBlock"] code {
+    color: #064e3b !important;            /* Dark Green/Black text */
+    font-family: sans-serif !important;   /* Cleaner look than monospace */
 }
 </style>
 """, unsafe_allow_html=True)
@@ -227,9 +245,11 @@ if image_file:
 
                     # --- REPORT DISPLAY SECTION ---
                     st.markdown("<div class='report-title'>📋 Clinical Report</div>", unsafe_allow_html=True)
-                    st.caption("ℹ️ Click the **Copy icon** (top-right of the box) to copy the report.")
                     
-                    # Using st.code ensures the "Copy" button appears in the top right
+                    # 1. CAPTION with instructions
+                    st.caption("ℹ️ To Copy: Tap the copy icon in the top-right corner of the green box below.")
+                    
+                    # 2. GREEN REPORT BOX (Styled via CSS above, retains Copy button)
                     st.code(report_text, language="markdown")
                     
                     st.success("Analysis Complete")
