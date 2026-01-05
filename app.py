@@ -4,6 +4,7 @@ from groq import Groq
 import base64
 from PIL import Image
 from PyPDF2 import PdfReader
+import io
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Masood Alam Eye Diagnostics", layout="wide", page_icon="👁️")
@@ -23,7 +24,6 @@ st.markdown("Select a modality from the sidebar and upload a scan for clinical a
 # --- 2. SIDEBAR SELECTION ---
 with st.sidebar:
     st.header("Select Modality")
-    # Added new modules: FFA and OCTA
     task_type = st.radio(
         "What type of image is this?",
         [
@@ -35,22 +35,23 @@ with st.sidebar:
             "Ultrasound B-Scan"
         ]
     )
+    st.divider()
+    
+    # --- INPUT METHOD SELECTION ---
+    input_method = st.radio("Choose Input Method:", ["Upload Image File", "Use Camera"])
     
     st.info(f"Currently Analyzing: **{task_type}**")
-    st.divider()
     st.caption("Powered by Llama 4 Vision & Groq")
 
 # --- 3. HELPER FUNCTIONS ---
-def encode_image(image_path):
-    with open(image_path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode('utf-8')
+def encode_image(image_file):
+    return base64.b64encode(image_file.getvalue()).decode('utf-8')
 
 def get_pdf_text(filename="REFERNCE.pdf"):
-    """Reads the specific 'REFERNCE.pdf' textbook from GitHub"""
     try:
         reader = PdfReader(filename)
         text = ""
-        # Read first 40 pages to capture all the new chapters (FFA/OCTA are at the end)
+        # Read first 45 pages to capture key diagnostic criteria
         for i, page in enumerate(reader.pages):
             if i > 45: break 
             text += page.extract_text()
@@ -59,17 +60,23 @@ def get_pdf_text(filename="REFERNCE.pdf"):
         return "Error: REFERNCE.pdf not found. Please ensure the file is named exactly 'REFERNCE.pdf' in GitHub."
 
 # --- 4. MAIN LOGIC ---
-uploaded_image = st.file_uploader("Upload Patient Image", type=['png', 'jpg', 'jpeg'])
 
-if uploaded_image and st.button("Analyze Scan"):
+# Smart Input Handling
+image_file = None
+
+if input_method == "Upload Image File":
+    image_file = st.file_uploader("Upload Patient Image", type=['png', 'jpg', 'jpeg'])
+else:
+    # This widget works INSIDE the browser, preventing the 'refresh' crash on mobile
+    image_file = st.camera_input("Take a Photo of the Scan")
+
+if image_file and st.button("Analyze Scan"):
     with st.spinner(f"Consulting AI about {task_type}..."):
         try:
             client = Groq(api_key=api_key)
 
-            # Save and Encode Image
-            with open("temp_scan.jpg", "wb") as f:
-                f.write(uploaded_image.getbuffer())
-            base64_image = encode_image("temp_scan.jpg")
+            # Encode Image directly from the file object
+            base64_image = encode_image(image_file)
             
             # Get Context from the book
             book_text = get_pdf_text("REFERNCE.pdf")
