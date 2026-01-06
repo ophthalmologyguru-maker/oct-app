@@ -79,6 +79,7 @@ with col_share:
 with st.sidebar:
     st.header("Imaging Modality")
 
+    # Added Fundus Photography to the list
     modality = st.radio(
         "Select modality",
         [
@@ -86,16 +87,14 @@ with st.sidebar:
             "OCT ONH (Glaucoma)",
             "Visual Field (Perimetry)",
             "Corneal Topography",
+            "Fundus Photography", 
             "Fluorescein Angiography (FFA)",
             "OCT Angiography (OCTA)",
             "Ultrasound B-Scan"
         ]
     )
 
-    report_style = st.selectbox(
-        "Reporting style",
-        ["Consultant Clinical Report", "Exam-Oriented (FCPS / MRCOphth)"]
-    )
+    # REMOVED: Report Style Selectbox is gone.
 
     st.divider()
     st.info(
@@ -115,10 +114,11 @@ def load_reference_text(path="REFERNCE.pdf"):
     try:
         reader = PdfReader(path)
         text = ""
+        # Increased page read limit slightly to ensure new reference data is caught
         for i, page in enumerate(reader.pages):
-            if i > 50: break
+            if i > 60: break
             text += page.extract_text() or ""
-        return text[:5000]
+        return text[:6000]
     except:
         return ""
 
@@ -159,11 +159,13 @@ REQUIRED OUTPUT STRUCTURE:
 (Brief recommendations for follow-up or further testing)
 """
 
+# Added Fundus Photography instructions here
 MODALITY_INSTRUCTIONS = {
     "OCT Macula": "Focus on: CSMT, Retinal Layers (ILM, ELM, IS/OS), Fluid (IRF/SRF), and RPE status.",
     "OCT ONH (Glaucoma)": "Focus on: RNFL Thickness (Average & Quadrants), Cup-to-Disc Ratio, and ISNT rule.",
     "Visual Field (Perimetry)": "Focus on: Reliability indices, GHT, Mean Deviation (MD), PSD, and defect patterns (Arcuate/Nasal Step).",
     "Corneal Topography": "Focus on: K-max, Thinnest Pachymetry, and Anterior/Posterior Elevation maps.",
+    "Fundus Photography": "Focus on: Optic Disc (Cup-to-Disc ratio, Margins, Pallor), Macula (Foveal reflex, Drusen, Edema, Hard/Soft Exudates), Vessels (Tortuosity, AV Nipping, Hemorrhages), and Periphery.",
     "Fluorescein Angiography (FFA)": "Focus on: Phases (Arterial/Venous), Leakage vs Staining vs Pooling, and Ischemia.",
     "OCT Angiography (OCTA)": "Focus on: Vascular density, FAZ size, and Neovascular networks.",
     "Ultrasound B-Scan": "Focus on: Retinal attachment, Vitreous echoes (Hemorrhage), and Mass lesions."
