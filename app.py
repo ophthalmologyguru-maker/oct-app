@@ -22,6 +22,7 @@ st.markdown("""
     padding: 1rem;
     max-width: 100%;
 }
+/* Hides standard Streamlit elements */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 header {visibility: hidden;}
@@ -36,12 +37,20 @@ header {visibility: hidden;}
     padding-bottom: 0.5rem;
 }
 
-/* Report Box Styling - Clean Document Look */
-.report-box {
-    border: 1px solid #e0e0e0;
-    padding: 20px;
-    border-radius: 5px;
-    background-color: transparent; 
+/* ------------------------------------------------------- */
+/* GREEN REPORT STYLE (Matches Image 2a)                  */
+/* ------------------------------------------------------- */
+/* This targets the st.code box to make it green */
+[data-testid="stCodeBlock"] {
+    background-color: #dcfce7 !important; /* Light Green Background */
+    border: 1px solid #86efac;            /* Slightly darker green border */
+    border-radius: 10px;
+    padding: 15px;
+}
+/* Ensures text inside the green box is dark and readable */
+[data-testid="stCodeBlock"] code {
+    color: #064e3b !important;            /* Dark Green/Black text */
+    font-family: sans-serif !important;   /* Cleaner look than monospace */
 }
 </style>
 """, unsafe_allow_html=True)
@@ -67,32 +76,43 @@ with col_header:
     st.markdown("**AI-Powered Ophthalmic Consultant**")
 
 with col_share:
-    # WhatsApp Encoding for App Link
+    # WhatsApp Encoding for App Link Only
     app_url = "https://eye-diagnostics.streamlit.app/"
     encoded_app_url = urllib.parse.quote(f"Check out this AI Eye Diagnostic tool: {app_url}")
     st.write("") 
     st.link_button("📤 Share App", f"https://wa.me/?text={encoded_app_url}")
 
-st.divider()
+# =========================================================
+# SIDEBAR
+# =========================================================
+with st.sidebar:
+    st.header("Imaging Modality")
 
-# =========================================================
-# MAIN MENU (MOVED FROM SIDEBAR TO MAIN PAGE)
-# =========================================================
-# Using selectbox is better for mobile (saves screen space)
-st.subheader("1. Select Imaging Modality")
-modality = st.selectbox(
-    "Choose the type of scan you are uploading:",
-    [
-        "OCT Macula",
-        "OCT ONH (Glaucoma)",
-        "Visual Field (Perimetry)",
-        "Corneal Topography",
-        "Fundus Photography", 
-        "Fluorescein Angiography (FFA)",
-        "OCT Angiography (OCTA)",
-        "Ultrasound B-Scan"
-    ]
-)
+    modality = st.radio(
+        "Select modality",
+        [
+            "OCT Macula",
+            "OCT ONH (Glaucoma)",
+            "Visual Field (Perimetry)",
+            "Corneal Topography",
+            "Fluorescein Angiography (FFA)",
+            "OCT Angiography (OCTA)",
+            "Ultrasound B-Scan"
+        ]
+    )
+
+    report_style = st.selectbox(
+        "Reporting style",
+        ["Consultant Clinical Report", "Exam-Oriented (FCPS / MRCOphth)"]
+    )
+
+    st.divider()
+    st.info(
+        "**Instructions:**\n"
+        "1. Select the correct modality.\n"
+        "2. Tap 'Browse files'.\n"
+        "3. Select an image from your device."
+    )
 
 # =========================================================
 # HELPER FUNCTIONS
@@ -105,9 +125,9 @@ def load_reference_text(path="REFERNCE.pdf"):
         reader = PdfReader(path)
         text = ""
         for i, page in enumerate(reader.pages):
-            if i > 60: break
+            if i > 50: break
             text += page.extract_text() or ""
-        return text[:6000]
+        return text[:5000]
     except:
         return ""
 
@@ -153,7 +173,6 @@ MODALITY_INSTRUCTIONS = {
     "OCT ONH (Glaucoma)": "Focus on: RNFL Thickness (Average & Quadrants), Cup-to-Disc Ratio, and ISNT rule.",
     "Visual Field (Perimetry)": "Focus on: Reliability indices, GHT, Mean Deviation (MD), PSD, and defect patterns (Arcuate/Nasal Step).",
     "Corneal Topography": "Focus on: K-max, Thinnest Pachymetry, and Anterior/Posterior Elevation maps.",
-    "Fundus Photography": "Focus on: Optic Disc (Cup-to-Disc ratio, Margins, Pallor), Macula (Foveal reflex, Drusen, Edema, Hard/Soft Exudates), Vessels (Tortuosity, AV Nipping, Hemorrhages), and Periphery.",
     "Fluorescein Angiography (FFA)": "Focus on: Phases (Arterial/Venous), Leakage vs Staining vs Pooling, and Ischemia.",
     "OCT Angiography (OCTA)": "Focus on: Vascular density, FAZ size, and Neovascular networks.",
     "Ultrasound B-Scan": "Focus on: Retinal attachment, Vitreous echoes (Hemorrhage), and Mass lesions."
@@ -162,7 +181,7 @@ MODALITY_INSTRUCTIONS = {
 # =========================================================
 # MAIN APP LOGIC
 # =========================================================
-st.subheader(f"2. Upload {modality} Scan")
+st.write(f"### Upload {modality} Scan")
 
 st.info("ℹ️ **Note:** Tap **'Browse files'** to upload an image from your **Device** (Android, iPhone, PC, Mac, or Linux).") 
 
@@ -227,9 +246,14 @@ if image_file:
                     # --- REPORT DISPLAY SECTION ---
                     st.markdown("<div class='report-title'>📋 Clinical Report</div>", unsafe_allow_html=True)
                     
-                    # Clean Document Style Report
-                    st.markdown(report_text)
+                    # 1. CAPTION with instructions
+                    st.caption("ℹ️ To Copy: Tap the copy icon in the top-right corner of the green box below.")
                     
+                    # 2. GREEN REPORT BOX (Styled via CSS above, retains Copy button)
+                    st.code(report_text, language="markdown")
+                    
+                    st.success("Analysis Complete")
+
                 except Exception as e:
                     st.error(f"Analysis Error: {e}")
     else:
