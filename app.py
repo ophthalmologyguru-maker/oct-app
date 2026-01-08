@@ -18,23 +18,15 @@ st.set_page_config(
 # =========================================================
 st.markdown("""
 <style>
-/* 1. MAIN BACKGROUND COLOR (Off-White) */
-.stApp {
-    background-color: #fafafa;
-}
-
-/* 2. CONTAINER PADDING */
 .block-container {
     padding: 1rem;
     max-width: 100%;
 }
-
-/* 3. HIDE STREAMLIT ELEMENTS */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 header {visibility: hidden;}
 
-/* 4. CUSTOM TITLE STYLE */
+/* Custom Title Style */
 .report-title {
     font-size: 1.5rem;
     font-weight: 800;
@@ -44,17 +36,12 @@ header {visibility: hidden;}
     padding-bottom: 0.5rem;
 }
 
-/* 5. GREEN REPORT STYLE */
-[data-testid="stCodeBlock"] {
-    background-color: #dcfce7 !important; /* Light Green Background */
-    border: 1px solid #86efac;            /* Slightly darker green border */
-    border-radius: 10px;
-    padding: 15px;
-}
-/* Ensures text inside the green box is dark and readable */
-[data-testid="stCodeBlock"] code {
-    color: #064e3b !important;            /* Dark Green/Black text */
-    font-family: sans-serif !important;   /* Cleaner look than monospace */
+/* Report Box Styling - Clean Document Look */
+.report-box {
+    border: 1px solid #e0e0e0;
+    padding: 20px;
+    border-radius: 5px;
+    background-color: transparent; /* Default Streamlit background */
 }
 </style>
 """, unsafe_allow_html=True)
@@ -92,6 +79,7 @@ with col_share:
 with st.sidebar:
     st.header("Imaging Modality")
 
+    # Added Fundus Photography to the list
     modality = st.radio(
         "Select modality",
         [
@@ -99,16 +87,14 @@ with st.sidebar:
             "OCT ONH (Glaucoma)",
             "Visual Field (Perimetry)",
             "Corneal Topography",
+            "Fundus Photography", 
             "Fluorescein Angiography (FFA)",
             "OCT Angiography (OCTA)",
             "Ultrasound B-Scan"
         ]
     )
 
-    report_style = st.selectbox(
-        "Reporting style",
-        ["Consultant Clinical Report", "Exam-Oriented (FCPS / MRCOphth)"]
-    )
+    # REMOVED: Report Style Selectbox is gone.
 
     st.divider()
     st.info(
@@ -128,13 +114,143 @@ def load_reference_text(path="REFERNCE.pdf"):
     try:
         reader = PdfReader(path)
         text = ""
+        # Increased page read limit slightly to ensure new reference data is caught
         for i, page in enumerate(reader.pages):
-            if i > 50: break   # <--- THIS WAS THE LINE THAT CAUSED THE ERROR
+            if i > 60: break
             text += page.extract_text() or ""
-        return text[:5000]
+        return text[:6000]
     except:
         return ""
 
 # =========================================================
 # SYSTEM PROMPT
 # =========================================================
+SYSTEM_PROMPT = """
+You are an expert Consultant Ophthalmologist (Dr. Masood Alam Shah).
+Your task is to analyze the provided ophthalmic scan and generate a formal clinical report.
+
+STRICT FORMATTING RULES:
+1. **USE MARKDOWN BOLD FOR HEADLINES**: All section titles must be surrounded by double asterisks (e.g., **SCAN QUALITY:**).
+2. **EXTRACT PATIENT DATA**: If visible, format as **PATIENT NAME:** [Name], etc.
+3. **NO FLUFF**: Start directly with the findings. No "Step 1" or introductions.
+4. **PROFESSIONAL TONE**: Use precise medical terminology.
+
+REQUIRED OUTPUT STRUCTURE:
+
+**PATIENT DATA:**
+- Name: [Extract or "Not Visible"]
+- ID: [Extract or "Not Visible"]
+- Age/DOB: [Extract or "Not Visible"]
+- Date of Scan: [Extract or "Not Visible"]
+
+**SCAN QUALITY:**
+(Assess signal strength, centration, and artifacts)
+
+**KEY FINDINGS:**
+(Bulleted list of specific anatomical and pathological findings)
+
+**QUANTITATIVE ANALYSIS:**
+(Extract specific numbers if visible: e.g., RNFL thickness, CSMT, C/D Ratio, MD, PSD)
+
+**CLINICAL IMPRESSION:**
+(A concise, probability-based diagnostic summary)
+
+**MANAGEMENT SUGGESTIONS:**
+(Brief recommendations for follow-up or further testing)
+"""
+
+# Added Fundus Photography instructions here
+MODALITY_INSTRUCTIONS = {
+    "OCT Macula": "Focus on: CSMT, Retinal Layers (ILM, ELM, IS/OS), Fluid (IRF/SRF), and RPE status.",
+    "OCT ONH (Glaucoma)": "Focus on: RNFL Thickness (Average & Quadrants), Cup-to-Disc Ratio, and ISNT rule.",
+    "Visual Field (Perimetry)": "Focus on: Reliability indices, GHT, Mean Deviation (MD), PSD, and defect patterns (Arcuate/Nasal Step).",
+    "Corneal Topography": "Focus on: K-max, Thinnest Pachymetry, and Anterior/Posterior Elevation maps.",
+    "Fundus Photography": "Focus on: Optic Disc (Cup-to-Disc ratio, Margins, Pallor), Macula (Foveal reflex, Drusen, Edema, Hard/Soft Exudates), Vessels (Tortuosity, AV Nipping, Hemorrhages), and Periphery.",
+    "Fluorescein Angiography (FFA)": "Focus on: Phases (Arterial/Venous), Leakage vs Staining vs Pooling, and Ischemia.",
+    "OCT Angiography (OCTA)": "Focus on: Vascular density, FAZ size, and Neovascular networks.",
+    "Ultrasound B-Scan": "Focus on: Retinal attachment, Vitreous echoes (Hemorrhage), and Mass lesions."
+}
+
+# =========================================================
+# MAIN APP LOGIC
+# =========================================================
+st.write(f"### Upload {modality} Scan")
+
+st.info("ℹ️ **Note:** Tap **'Browse files'** to upload an image from your **Device** (Android, iPhone, PC, Mac, or Linux).") 
+
+image_file = st.file_uploader("Choose an image file", type=["jpg", "jpeg", "png"])
+
+# --- DISCLAIMER ---
+st.warning(
+    """
+    ⚠️ **AI MEDICAL DISCLAIMER**
+    
+    This application uses artificial intelligence to assist in the interpretation of ophthalmic images.
+    The output is for **educational and clinical support purposes only** and **does not constitute a medical diagnosis.**
+    **This tool does not replace professional medical judgment.**
+    """
+)
+
+# --- ACKNOWLEDGEMENT ---
+acknowledgement = st.checkbox(
+    "✅ I acknowledge that I have read the disclaimer above and understand this tool is for support purposes only."
+)
+
+if image_file:
+    st.image(image_file, caption="Scan Preview", width=300)
+    
+    if acknowledgement:
+        if st.button("Analyze Scan", type="primary"):
+            with st.spinner("Dr. Masood's AI is analyzing..."):
+                try:
+                    encoded_image = encode_image(image_file)
+                    reference_text = load_reference_text()
+
+                    user_prompt = f"""
+                    MODALITY: {modality}
+                    CONTEXT: {MODALITY_INSTRUCTIONS[modality]}
+                    REFERENCE DATA: {reference_text}
+                    """
+
+                    messages = [
+                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": user_prompt},
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/jpeg;base64,{encoded_image}"
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+
+                    response = client.chat.completions.create(
+                        model="meta-llama/llama-4-scout-17b-16e-instruct",
+                        messages=messages,
+                        temperature=0.1
+                    )
+                    
+                    report_text = response.choices[0].message.content
+
+                    # --- REPORT DISPLAY SECTION ---
+                    st.markdown("<div class='report-title'>📋 Clinical Report</div>", unsafe_allow_html=True)
+                    
+                    # Using simple Markdown ensures the report looks like a standard document
+                    st.markdown(report_text)
+                    
+                except Exception as e:
+                    st.error(f"Analysis Error: {e}")
+    else:
+        st.info("👆 **Please check the acknowledgement box above to enable the Analyze button.**")
+
+# =========================================================
+# FOOTER
+# =========================================================
+st.markdown(
+    "<hr><center><small>Masood Alam Eye Diagnostics | AI Clinical Support Tool</small></center>",
+    unsafe_allow_html=True
+)
