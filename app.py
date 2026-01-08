@@ -18,16 +18,23 @@ st.set_page_config(
 # =========================================================
 st.markdown("""
 <style>
+/* 1. MAIN BACKGROUND COLOR (Off-White) */
+.stApp {
+    background-color: #fafafa; /* Soft off-white color */
+}
+
+/* 2. CONTAINER PADDING */
 .block-container {
     padding: 1rem;
     max-width: 100%;
 }
-/* Hides standard Streamlit elements */
+
+/* 3. HIDE STREAMLIT ELEMENTS */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 header {visibility: hidden;}
 
-/* Custom Title Style */
+/* 4. CUSTOM TITLE STYLE */
 .report-title {
     font-size: 1.5rem;
     font-weight: 800;
@@ -37,9 +44,7 @@ header {visibility: hidden;}
     padding-bottom: 0.5rem;
 }
 
-/* ------------------------------------------------------- */
-/* GREEN REPORT STYLE (Matches Image 2a)                  */
-/* ------------------------------------------------------- */
+/* 5. GREEN REPORT STYLE (Matches Image 2a) */
 /* This targets the st.code box to make it green */
 [data-testid="stCodeBlock"] {
     background-color: #dcfce7 !important; /* Light Green Background */
@@ -125,144 +130,4 @@ def load_reference_text(path="REFERNCE.pdf"):
         reader = PdfReader(path)
         text = ""
         for i, page in enumerate(reader.pages):
-            if i > 50: break
-            text += page.extract_text() or ""
-        return text[:5000]
-    except:
-        return ""
-
-# =========================================================
-# SYSTEM PROMPT
-# =========================================================
-SYSTEM_PROMPT = """
-You are an expert Consultant Ophthalmologist (Dr. Masood Alam Shah).
-Your task is to analyze the provided ophthalmic scan and generate a formal clinical report.
-
-STRICT FORMATTING RULES:
-1. **USE MARKDOWN BOLD FOR HEADLINES**: All section titles must be surrounded by double asterisks (e.g., **SCAN QUALITY:**).
-2. **EXTRACT PATIENT DATA**: If visible, format as **PATIENT NAME:** [Name], etc.
-3. **NO FLUFF**: Start directly with the findings. No "Step 1" or introductions.
-4. **PROFESSIONAL TONE**: Use precise medical terminology.
-
-REQUIRED OUTPUT STRUCTURE:
-
-**PATIENT DATA:**
-- Name: [Extract or "Not Visible"]
-- ID: [Extract or "Not Visible"]
-- Age/DOB: [Extract or "Not Visible"]
-- Date of Scan: [Extract or "Not Visible"]
-
-**SCAN QUALITY:**
-(Assess signal strength, centration, and artifacts)
-
-**KEY FINDINGS:**
-(Bulleted list of specific anatomical and pathological findings)
-
-**QUANTITATIVE ANALYSIS:**
-(Extract specific numbers if visible: e.g., RNFL thickness, CSMT, C/D Ratio, MD, PSD)
-
-**CLINICAL IMPRESSION:**
-(A concise, probability-based diagnostic summary)
-
-**MANAGEMENT SUGGESTIONS:**
-(Brief recommendations for follow-up or further testing)
-"""
-
-MODALITY_INSTRUCTIONS = {
-    "OCT Macula": "Focus on: CSMT, Retinal Layers (ILM, ELM, IS/OS), Fluid (IRF/SRF), and RPE status.",
-    "OCT ONH (Glaucoma)": "Focus on: RNFL Thickness (Average & Quadrants), Cup-to-Disc Ratio, and ISNT rule.",
-    "Visual Field (Perimetry)": "Focus on: Reliability indices, GHT, Mean Deviation (MD), PSD, and defect patterns (Arcuate/Nasal Step).",
-    "Corneal Topography": "Focus on: K-max, Thinnest Pachymetry, and Anterior/Posterior Elevation maps.",
-    "Fluorescein Angiography (FFA)": "Focus on: Phases (Arterial/Venous), Leakage vs Staining vs Pooling, and Ischemia.",
-    "OCT Angiography (OCTA)": "Focus on: Vascular density, FAZ size, and Neovascular networks.",
-    "Ultrasound B-Scan": "Focus on: Retinal attachment, Vitreous echoes (Hemorrhage), and Mass lesions."
-}
-
-# =========================================================
-# MAIN APP LOGIC
-# =========================================================
-st.write(f"### Upload {modality} Scan")
-
-st.info("ℹ️ **Note:** Tap **'Browse files'** to upload an image from your **Device** (Android, iPhone, PC, Mac, or Linux).") 
-
-image_file = st.file_uploader("Choose an image file", type=["jpg", "jpeg", "png"])
-
-# --- DISCLAIMER ---
-st.warning(
-    """
-    ⚠️ **AI MEDICAL DISCLAIMER**
-    
-    This application uses artificial intelligence to assist in the interpretation of ophthalmic images.
-    The output is for **educational and clinical support purposes only** and **does not constitute a medical diagnosis.**
-    **This tool does not replace professional medical judgment.**
-    """
-)
-
-# --- ACKNOWLEDGEMENT ---
-acknowledgement = st.checkbox(
-    "✅ I acknowledge that I have read the disclaimer above and understand this tool is for support purposes only."
-)
-
-if image_file:
-    st.image(image_file, caption="Scan Preview", width=300)
-    
-    if acknowledgement:
-        if st.button("Analyze Scan", type="primary"):
-            with st.spinner("Dr. Masood's AI is analyzing..."):
-                try:
-                    encoded_image = encode_image(image_file)
-                    reference_text = load_reference_text()
-
-                    user_prompt = f"""
-                    MODALITY: {modality}
-                    CONTEXT: {MODALITY_INSTRUCTIONS[modality]}
-                    REFERENCE DATA: {reference_text}
-                    """
-
-                    messages = [
-                        {"role": "system", "content": SYSTEM_PROMPT},
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": user_prompt},
-                                {
-                                    "type": "image_url",
-                                    "image_url": {
-                                        "url": f"data:image/jpeg;base64,{encoded_image}"
-                                    }
-                                }
-                            ]
-                        }
-                    ]
-
-                    response = client.chat.completions.create(
-                        model="meta-llama/llama-4-scout-17b-16e-instruct",
-                        messages=messages,
-                        temperature=0.1
-                    )
-                    
-                    report_text = response.choices[0].message.content
-
-                    # --- REPORT DISPLAY SECTION ---
-                    st.markdown("<div class='report-title'>📋 Clinical Report</div>", unsafe_allow_html=True)
-                    
-                    # 1. CAPTION with instructions
-                    st.caption("ℹ️ To Copy: Tap the copy icon in the top-right corner of the green box below.")
-                    
-                    # 2. GREEN REPORT BOX (Styled via CSS above, retains Copy button)
-                    st.code(report_text, language="markdown")
-                    
-                    st.success("Analysis Complete")
-
-                except Exception as e:
-                    st.error(f"Analysis Error: {e}")
-    else:
-        st.info("👆 **Please check the acknowledgement box above to enable the Analyze button.**")
-
-# =========================================================
-# FOOTER
-# =========================================================
-st.markdown(
-    "<hr><center><small>Masood Alam Eye Diagnostics | AI Clinical Support Tool</small></center>",
-    unsafe_allow_html=True
-)
+            if i >
