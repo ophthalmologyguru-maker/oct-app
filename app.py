@@ -41,7 +41,7 @@ header {visibility: hidden;}
     border: 1px solid #e0e0e0;
     padding: 20px;
     border-radius: 5px;
-    background-color: transparent; /* Default Streamlit background */
+    background-color: transparent; 
 }
 </style>
 """, unsafe_allow_html=True)
@@ -67,42 +67,32 @@ with col_header:
     st.markdown("**AI-Powered Ophthalmic Consultant**")
 
 with col_share:
-    # WhatsApp Encoding for App Link Only
+    # WhatsApp Encoding for App Link
     app_url = "https://eye-diagnostics.streamlit.app/"
     encoded_app_url = urllib.parse.quote(f"Check out this AI Eye Diagnostic tool: {app_url}")
     st.write("") 
     st.link_button("📤 Share App", f"https://wa.me/?text={encoded_app_url}")
 
+st.divider()
+
 # =========================================================
-# SIDEBAR
+# MAIN MENU (MOVED FROM SIDEBAR TO MAIN PAGE)
 # =========================================================
-with st.sidebar:
-    st.header("Imaging Modality")
-
-    # Added Fundus Photography to the list
-    modality = st.radio(
-        "Select modality",
-        [
-            "OCT Macula",
-            "OCT ONH (Glaucoma)",
-            "Visual Field (Perimetry)",
-            "Corneal Topography",
-            "Fundus Photography", 
-            "Fluorescein Angiography (FFA)",
-            "OCT Angiography (OCTA)",
-            "Ultrasound B-Scan"
-        ]
-    )
-
-    # REMOVED: Report Style Selectbox is gone.
-
-    st.divider()
-    st.info(
-        "**Instructions:**\n"
-        "1. Select the correct modality.\n"
-        "2. Tap 'Browse files'.\n"
-        "3. Select an image from your device."
-    )
+# Using selectbox is better for mobile (saves screen space)
+st.subheader("1. Select Imaging Modality")
+modality = st.selectbox(
+    "Choose the type of scan you are uploading:",
+    [
+        "OCT Macula",
+        "OCT ONH (Glaucoma)",
+        "Visual Field (Perimetry)",
+        "Corneal Topography",
+        "Fundus Photography", 
+        "Fluorescein Angiography (FFA)",
+        "OCT Angiography (OCTA)",
+        "Ultrasound B-Scan"
+    ]
+)
 
 # =========================================================
 # HELPER FUNCTIONS
@@ -114,7 +104,6 @@ def load_reference_text(path="REFERNCE.pdf"):
     try:
         reader = PdfReader(path)
         text = ""
-        # Increased page read limit slightly to ensure new reference data is caught
         for i, page in enumerate(reader.pages):
             if i > 60: break
             text += page.extract_text() or ""
@@ -159,7 +148,6 @@ REQUIRED OUTPUT STRUCTURE:
 (Brief recommendations for follow-up or further testing)
 """
 
-# Added Fundus Photography instructions here
 MODALITY_INSTRUCTIONS = {
     "OCT Macula": "Focus on: CSMT, Retinal Layers (ILM, ELM, IS/OS), Fluid (IRF/SRF), and RPE status.",
     "OCT ONH (Glaucoma)": "Focus on: RNFL Thickness (Average & Quadrants), Cup-to-Disc Ratio, and ISNT rule.",
@@ -174,7 +162,7 @@ MODALITY_INSTRUCTIONS = {
 # =========================================================
 # MAIN APP LOGIC
 # =========================================================
-st.write(f"### Upload {modality} Scan")
+st.subheader(f"2. Upload {modality} Scan")
 
 st.info("ℹ️ **Note:** Tap **'Browse files'** to upload an image from your **Device** (Android, iPhone, PC, Mac, or Linux).") 
 
@@ -239,7 +227,7 @@ if image_file:
                     # --- REPORT DISPLAY SECTION ---
                     st.markdown("<div class='report-title'>📋 Clinical Report</div>", unsafe_allow_html=True)
                     
-                    # Using simple Markdown ensures the report looks like a standard document
+                    # Clean Document Style Report
                     st.markdown(report_text)
                     
                 except Exception as e:
