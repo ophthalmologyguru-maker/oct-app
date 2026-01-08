@@ -20,7 +20,7 @@ st.markdown("""
 <style>
 /* 1. MAIN BACKGROUND COLOR (Off-White) */
 .stApp {
-    background-color: #fafafa; /* Soft off-white color */
+    background-color: #fafafa;
 }
 
 /* 2. CONTAINER PADDING */
@@ -44,8 +44,7 @@ header {visibility: hidden;}
     padding-bottom: 0.5rem;
 }
 
-/* 5. GREEN REPORT STYLE (Matches Image 2a) */
-/* This targets the st.code box to make it green */
+/* 5. GREEN REPORT STYLE */
 [data-testid="stCodeBlock"] {
     background-color: #dcfce7 !important; /* Light Green Background */
     border: 1px solid #86efac;            /* Slightly darker green border */
@@ -130,4 +129,12 @@ def load_reference_text(path="REFERNCE.pdf"):
         reader = PdfReader(path)
         text = ""
         for i, page in enumerate(reader.pages):
-            if i >
+            if i > 50: break   # <--- THIS WAS THE LINE THAT CAUSED THE ERROR
+            text += page.extract_text() or ""
+        return text[:5000]
+    except:
+        return ""
+
+# =========================================================
+# SYSTEM PROMPT
+# =========================================================
