@@ -1,256 +1,126 @@
 import streamlit as st
-import base64
+import os
 from groq import Groq
+import base64
+from PIL import Image
 from PyPDF2 import PdfReader
-import urllib.parse
 
-# =========================================================
-# PAGE CONFIGURATION
-# =========================================================
-st.set_page_config(
-    page_title="Masood Alam Eye Diagnostics",
-    layout="wide",
-    page_icon="👁️"
-)
+# --- 1. CONFIGURATION ---
+st.set_page_config(page_title="Masood Alam Eye Diagnostics", layout="wide", page_icon="👁️")
 
-# =========================================================
-# STYLING (CSS)
-# =========================================================
-st.markdown("""
-<style>
-.block-container {
-    padding: 1rem;
-    max-width: 100%;
-}
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-header {visibility: hidden;}
-
-/* Custom Title Style */
-.report-title {
-    font-size: 1.5rem;
-    font-weight: 800;
-    color: #0e1117;
-    border-bottom: 3px solid #ff4b4b;
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-}
-
-/* Report Box Styling - Clean Document Look */
-.report-box {
-    border: 1px solid #e0e0e0;
-    padding: 20px;
-    border-radius: 5px;
-    background-color: transparent; /* Default Streamlit background */
-}
-</style>
-""", unsafe_allow_html=True)
-
-# =========================================================
-# API KEY
-# =========================================================
+# Access the API Key securely
 try:
     api_key = st.secrets["GROQ_API_KEY"]
-except KeyError:
-    st.error("GROQ_API_KEY not found in Streamlit secrets.")
+except:
+    st.error("⚠️ Security Error: API Key not found in Secrets. Please add it in Streamlit Settings.")
     st.stop()
 
-client = Groq(api_key=api_key)
+# --- REBRANDING HEADER ---
+st.title("👁️ Masood Alam Eye Diagnostics")
+st.markdown("### AI-Powered Ophthalmic Consultant")
+st.markdown("Select a modality from the sidebar and upload a scan for clinical analysis.")
 
-# =========================================================
-# HEADER & SHARE APP BUTTON (Top Right)
-# =========================================================
-col_header, col_share = st.columns([7, 2])
-
-with col_header:
-    st.title("👁️ Masood Alam Eye Diagnostics")
-    st.markdown("**AI-Powered Ophthalmic Consultant**")
-
-with col_share:
-    # WhatsApp Encoding for App Link Only
-    app_url = "https://eye-diagnostics.streamlit.app/"
-    encoded_app_url = urllib.parse.quote(f"Check out this AI Eye Diagnostic tool: {app_url}")
-    st.write("") 
-    st.link_button("📤 Share App", f"https://wa.me/?text={encoded_app_url}")
-
-# =========================================================
-# SIDEBAR
-# =========================================================
+# --- 2. SIDEBAR SELECTION ---
 with st.sidebar:
-    st.header("Imaging Modality")
-
-    # Added Fundus Photography to the list
-    modality = st.radio(
-        "Select modality",
+    st.header("Select Modality")
+    # Added new modules: FFA and OCTA
+    task_type = st.radio(
+        "What type of image is this?",
         [
-            "OCT Macula",
-            "OCT ONH (Glaucoma)",
-            "Visual Field (Perimetry)",
-            "Corneal Topography",
-            "Fundus Photography", 
-            "Fluorescein Angiography (FFA)",
+            "OCT (Retina)", 
+            "Visual Field (Perimetry)", 
+            "Corneal Topography", 
+            "Fluorescein Angiography (FFA)", 
             "OCT Angiography (OCTA)",
             "Ultrasound B-Scan"
         ]
     )
-
-    # REMOVED: Report Style Selectbox is gone.
-
+    
+    st.info(f"Currently Analyzing: **{task_type}**")
     st.divider()
-    st.info(
-        "**Instructions:**\n"
-        "1. Select the correct modality.\n"
-        "2. Tap 'Browse files'.\n"
-        "3. Select an image from your device."
-    )
+    st.caption("Powered by Llama 4 Vision & Groq")
 
-# =========================================================
-# HELPER FUNCTIONS
-# =========================================================
-def encode_image(file):
-    return base64.b64encode(file.getvalue()).decode("utf-8")
+# --- 3. HELPER FUNCTIONS ---
+def encode_image(image_path):
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode('utf-8')
 
-def load_reference_text(path="REFERNCE.pdf"):
+def get_pdf_text(filename="REFERNCE.pdf"):
+    """Reads the specific 'REFERNCE.pdf' textbook from GitHub"""
     try:
-        reader = PdfReader(path)
+        reader = PdfReader(filename)
         text = ""
-        # Increased page read limit slightly to ensure new reference data is caught
+        # Read first 40 pages to capture all the new chapters (FFA/OCTA are at the end)
         for i, page in enumerate(reader.pages):
-            if i > 60: break
-            text += page.extract_text() or ""
-        return text[:6000]
-    except:
-        return ""
+            if i > 45: break 
+            text += page.extract_text()
+        return text
+    except FileNotFoundError:
+        return "Error: REFERNCE.pdf not found. Please ensure the file is named exactly 'REFERNCE.pdf' in GitHub."
 
-# =========================================================
-# SYSTEM PROMPT
-# =========================================================
-SYSTEM_PROMPT = """
-You are an expert Consultant Ophthalmologist (Dr. Masood Alam Shah).
-Your task is to analyze the provided ophthalmic scan and generate a formal clinical report.
+# --- 4. MAIN LOGIC ---
+uploaded_image = st.file_uploader("Upload Patient Image", type=['png', 'jpg', 'jpeg'])
 
-STRICT FORMATTING RULES:
-1. **USE MARKDOWN BOLD FOR HEADLINES**: All section titles must be surrounded by double asterisks (e.g., **SCAN QUALITY:**).
-2. **EXTRACT PATIENT DATA**: If visible, format as **PATIENT NAME:** [Name], etc.
-3. **NO FLUFF**: Start directly with the findings. No "Step 1" or introductions.
-4. **PROFESSIONAL TONE**: Use precise medical terminology.
+if uploaded_image and st.button("Analyze Scan"):
+    with st.spinner(f"Consulting AI about {task_type}..."):
+        try:
+            client = Groq(api_key=api_key)
 
-REQUIRED OUTPUT STRUCTURE:
+            # Save and Encode Image
+            with open("temp_scan.jpg", "wb") as f:
+                f.write(uploaded_image.getbuffer())
+            base64_image = encode_image("temp_scan.jpg")
+            
+            # Get Context from the book
+            book_text = get_pdf_text("REFERNCE.pdf")
 
-**PATIENT DATA:**
-- Name: [Extract or "Not Visible"]
-- ID: [Extract or "Not Visible"]
-- Age/DOB: [Extract or "Not Visible"]
-- Date of Scan: [Extract or "Not Visible"]
+            # --- CUSTOM PROMPTS FOR EACH MODULE ---
+            if task_type == "OCT (Retina)":
+                specific_instruction = "Analyze this OCT scan. Identify layers (ILM, RPE), look for fluid (SRF, IRF), PEDs, or atrophy. Differentiate between wet AMD and DME features."
+            
+            elif task_type == "Visual Field (Perimetry)":
+                specific_instruction = "Analyze this Humphrey Visual Field. Identify the pattern (e.g., arcuate defect, nasal step, central island). Assess reliability indices (fixation losses, false positives) and determine if the defect aligns with glaucoma or neurological issues."
+            
+            elif task_type == "Corneal Topography":
+                specific_instruction = "Analyze this Pentacam/Topography map. Look for steepening patterns (Keratoconus, pellucid marginal degeneration), astigmatism type (with/against the rule), and pachymetry thinning."
+            
+            elif task_type == "Fluorescein Angiography (FFA)":
+                specific_instruction = "Analyze this FFA image. Identify the phase (arterial, venous, recirculation). Look for Hyperfluorescence (leakage, pooling, staining, window defects) or Hypofluorescence (blocking, filling defects). Differentiate between CNV leakage and staining drusen."
+            
+            elif task_type == "OCT Angiography (OCTA)":
+                specific_instruction = "Analyze this OCT Angiography (OCTA) scan. Look for capillary dropout (ischemia), enlargement of the FAZ (foveal avascular zone), or presence of neovascular networks (Type 1, 2, or 3). Distinguish between flow voids and artifacts."
+            
+            elif task_type == "Ultrasound B-Scan":
+                specific_instruction = "Analyze this B-Scan. Look for retinal detachment (undulating membrane), vitreous hemorrhage, posterior vitreous detachment, or choroidal masses (melanoma vs nevus reflectivity)."
 
-**SCAN QUALITY:**
-(Assess signal strength, centration, and artifacts)
-
-**KEY FINDINGS:**
-(Bulleted list of specific anatomical and pathological findings)
-
-**QUANTITATIVE ANALYSIS:**
-(Extract specific numbers if visible: e.g., RNFL thickness, CSMT, C/D Ratio, MD, PSD)
-
-**CLINICAL IMPRESSION:**
-(A concise, probability-based diagnostic summary)
-
-**MANAGEMENT SUGGESTIONS:**
-(Brief recommendations for follow-up or further testing)
-"""
-
-# Added Fundus Photography instructions here
-MODALITY_INSTRUCTIONS = {
-    "OCT Macula": "Focus on: CSMT, Retinal Layers (ILM, ELM, IS/OS), Fluid (IRF/SRF), and RPE status.",
-    "OCT ONH (Glaucoma)": "Focus on: RNFL Thickness (Average & Quadrants), Cup-to-Disc Ratio, and ISNT rule.",
-    "Visual Field (Perimetry)": "Focus on: Reliability indices, GHT, Mean Deviation (MD), PSD, and defect patterns (Arcuate/Nasal Step).",
-    "Corneal Topography": "Focus on: K-max, Thinnest Pachymetry, and Anterior/Posterior Elevation maps.",
-    "Fundus Photography": "Focus on: Optic Disc (Cup-to-Disc ratio, Margins, Pallor), Macula (Foveal reflex, Drusen, Edema, Hard/Soft Exudates), Vessels (Tortuosity, AV Nipping, Hemorrhages), and Periphery.",
-    "Fluorescein Angiography (FFA)": "Focus on: Phases (Arterial/Venous), Leakage vs Staining vs Pooling, and Ischemia.",
-    "OCT Angiography (OCTA)": "Focus on: Vascular density, FAZ size, and Neovascular networks.",
-    "Ultrasound B-Scan": "Focus on: Retinal attachment, Vitreous echoes (Hemorrhage), and Mass lesions."
-}
-
-# =========================================================
-# MAIN APP LOGIC
-# =========================================================
-st.write(f"### Upload {modality} Scan")
-
-st.info("ℹ️ **Note:** Tap **'Browse files'** to upload an image from your **Device** (Android, iPhone, PC, Mac, or Linux).") 
-
-image_file = st.file_uploader("Choose an image file", type=["jpg", "jpeg", "png"])
-
-# --- DISCLAIMER ---
-st.warning(
-    """
-    ⚠️ **AI MEDICAL DISCLAIMER**
-    
-    This application uses artificial intelligence to assist in the interpretation of ophthalmic images.
-    The output is for **educational and clinical support purposes only** and **does not constitute a medical diagnosis.**
-    **This tool does not replace professional medical judgment.**
-    """
-)
-
-# --- ACKNOWLEDGEMENT ---
-acknowledgement = st.checkbox(
-    "✅ I acknowledge that I have read the disclaimer above and understand this tool is for support purposes only."
-)
-
-if image_file:
-    st.image(image_file, caption="Scan Preview", width=300)
-    
-    if acknowledgement:
-        if st.button("Analyze Scan", type="primary"):
-            with st.spinner("Dr. Masood's AI is analyzing..."):
-                try:
-                    encoded_image = encode_image(image_file)
-                    reference_text = load_reference_text()
-
-                    user_prompt = f"""
-                    MODALITY: {modality}
-                    CONTEXT: {MODALITY_INSTRUCTIONS[modality]}
-                    REFERENCE DATA: {reference_text}
-                    """
-
-                    messages = [
-                        {"role": "system", "content": SYSTEM_PROMPT},
+            # The Master Prompt
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
                         {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": user_prompt},
-                                {
-                                    "type": "image_url",
-                                    "image_url": {
-                                        "url": f"data:image/jpeg;base64,{encoded_image}"
-                                    }
-                                }
-                            ]
+                            "type": "text", 
+                            "text": f"You are an expert Consultant Ophthalmologist at Masood Alam Eye Diagnostics. Use the provided text as your primary knowledge base.\n\nTask: {specific_instruction}\n\nReference Knowledge: {book_text[:6000]}..." 
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{base64_image}"
+                            }
                         }
                     ]
+                }
+            ]
 
-                    response = client.chat.completions.create(
-                        model="meta-llama/llama-4-scout-17b-16e-instruct",
-                        messages=messages,
-                        temperature=0.1
-                    )
-                    
-                    report_text = response.choices[0].message.content
+            # Send to Llama 4
+            chat_completion = client.chat.completions.create(
+                messages=messages,
+                model="meta-llama/llama-4-scout-17b-16e-instruct", 
+            )
 
-                    # --- REPORT DISPLAY SECTION ---
-                    st.markdown("<div class='report-title'>📋 Clinical Report</div>", unsafe_allow_html=True)
-                    
-                    # Using simple Markdown ensures the report looks like a standard document
-                    st.markdown(report_text)
-                    
-                except Exception as e:
-                    st.error(f"Analysis Error: {e}")
-    else:
-        st.info("👆 **Please check the acknowledgement box above to enable the Analyze button.**")
+            st.subheader(f"Analysis: {task_type}")
+            st.success("Report Generated by Masood Alam Eye Diagnostics AI")
+            st.write(chat_completion.choices[0].message.content)
 
-# =========================================================
-# FOOTER
-# =========================================================
-st.markdown(
-    "<hr><center><small>Masood Alam Eye Diagnostics | AI Clinical Support Tool</small></center>",
-    unsafe_allow_html=True
-)
+        except Exception as e:
+            st.error(f"An error occurred: {e}")
