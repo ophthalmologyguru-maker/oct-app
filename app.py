@@ -34,9 +34,9 @@ header {visibility: hidden;}
     margin-bottom: 1rem;
     padding-bottom: 0.5rem;
 }
-/* Make the warning box stand out */
+/* Highlighting the disclaimer to ensure visibility */
 .stAlert {
-    font-weight: 500;
+    font-weight: 600;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -59,9 +59,24 @@ st.title("👁️ Masood Alam Eye Diagnostics")
 st.markdown("**AI-Powered Ophthalmic Consultant**")
 
 # =========================================================
-# SIDEBAR (MODALITIES ON TOP)
+# SIDEBAR
 # =========================================================
 with st.sidebar:
+    # --- PROMINENT DISCLAIMER ---
+    st.warning(
+        """
+        ⚠️ **AI MEDICAL DISCLAIMER**
+        
+        This application uses artificial intelligence to assist in the interpretation of ophthalmic images.
+        
+        The output is for **educational and clinical support purposes only** and **does not constitute a medical diagnosis, clinical decision, or treatment recommendation.**
+        
+        All results must be interpreted by a **qualified ophthalmologist** in conjunction with clinical examination, patient history, and other relevant investigations.
+        
+        **This tool does not replace professional medical judgment.**
+        """
+    )
+    
     st.header("Imaging Modality")
 
     modality = st.radio(
@@ -85,10 +100,9 @@ with st.sidebar:
     st.divider()
     st.info(
         "**Instructions:**\n"
-        "1. Select modality.\n"
-        "2. Upload scan.\n"
-        "3. Acknowledge disclaimer.\n"
-        "4. Click Analyze."
+        "1. Acknowledge the disclaimer below.\n"
+        "2. Select the correct modality.\n"
+        "3. Tap 'Browse files' to upload."
     )
 
 # =========================================================
@@ -160,39 +174,24 @@ MODALITY_INSTRUCTIONS = {
 # =========================================================
 st.write(f"### Upload {modality} Scan")
 
-# 1. Instruction Note
 st.info("ℹ️ **Note:** Tap **'Browse files'** to upload an image from your **Device** (Android, iPhone, PC, Mac, or Linux).") 
 
-# 2. File Uploader (Always Visible)
-image_file = st.file_uploader("Choose an image file", type=["jpg", "jpeg", "png"])
-
-# 3. Disclaimer (Beneath Uploader)
-st.warning(
-    """
-    ⚠️ **AI MEDICAL DISCLAIMER**
-    
-    This application uses artificial intelligence to assist in the interpretation of ophthalmic images.
-    
-    The output is for **educational and clinical support purposes only** and **does not constitute a medical diagnosis, clinical decision, or treatment recommendation.**
-    
-    All results must be interpreted by a **qualified ophthalmologist** in conjunction with clinical examination, patient history, and other relevant investigations.
-    
-    **This tool does not replace professional medical judgment.**
-    """
-)
-
-# 4. Acknowledgement (Beneath Disclaimer)
+# --- MANDATORY ACKNOWLEDGEMENT ---
 acknowledgement = st.checkbox(
-    "✅ I acknowledge that I have read the disclaimer above and understand this tool is for support purposes only."
+    "✅ I acknowledge that this tool is for educational/support purposes only and does not replace professional medical judgment."
 )
 
-# 5. Logic: Show Preview and Analyze Button ONLY if File Uploaded + Acknowledged
-if image_file:
-    # Show Preview
-    st.image(image_file, caption="Scan Preview", width=300)
-    
-    if acknowledgement:
-        # Show Button
+if not acknowledgement:
+    st.warning("⚠️ You must acknowledge the disclaimer above to upload and analyze scans.")
+else:
+    # Only show uploader if acknowledged
+    image_file = st.file_uploader("Choose an image file", type=["jpg", "jpeg", "png"])
+
+    if image_file:
+        # Show preview
+        st.image(image_file, caption="Scan Preview", width=300)
+        
+        # Analyze Button
         if st.button("Analyze Scan", type="primary"):
             with st.spinner("Dr. Masood's AI is analyzing..."):
                 try:
@@ -231,12 +230,11 @@ if image_file:
                     st.markdown("<div class='report-title'>📋 Clinical Report</div>", unsafe_allow_html=True)
                     st.markdown(response.choices[0].message.content)
                     
-                    st.success("Analysis Complete")
+                    # Disclaimer
+                    st.warning("⚠️ AI-Generated Report. Verify all findings clinically.")
 
                 except Exception as e:
                     st.error(f"Analysis Error: {e}")
-    else:
-        st.info("👆 **Please check the acknowledgement box above to enable the Analyze button.**")
 
 # =========================================================
 # FOOTER
